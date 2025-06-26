@@ -1,0 +1,1195 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+
+// Impor package Firebase
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'firebase_options.dart';
+
+// --- THEME MANAGEMENT (STATE) ---
+class ThemeNotifier extends ChangeNotifier {
+  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode get themeMode => _themeMode;
+
+  void toggleTheme(bool isDarkMode) {
+    _themeMode = isDarkMode ? ThemeMode.dark : ThemeMode.light;
+    notifyListeners();
+  }
+}
+
+// --- Firebase Auth Service ---
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  Stream<User?> get user => _auth.authStateChanges();
+
+  Future<User?> registerWithEmail(String email, String password, String fullName) async {
+    try {
+      UserCredential result = await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      User? user = result.user;
+      if (user != null) {
+        await _db.collection('users').doc(user.uid).set({'fullName': fullName, 'email': email});
+        await user.updateDisplayName(fullName);
+      }
+      return user;
+    } catch (e) {
+      print(e.toString());
+      return null;
+    }
+  }
+
+  Future<User?> signInWithEmail(String email, String password) async {
+    try {
+      UserCredential result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      return result.user;
+    } catch (e) {
+      print(e.toString());
+      return null;
+    }
+  }
+
+  Future<User?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(accessToken: googleAuth.accessToken, idToken: googleAuth.idToken);
+      UserCredential result = await _auth.signInWithCredential(credential);
+      User? user = result.user;
+      if (user != null && result.additionalUserInfo!.isNewUser) {
+        await _db.collection('users').doc(user.uid).set({'fullName': user.displayName, 'email': user.email, 'photoUrl': user.photoURL});
+      }
+      return user;
+    } catch (e) {
+      print(e.toString());
+      return null;
+    }
+  }
+
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    await _auth.signOut();
+  }
+}
+
+// --- MAIN APP ---
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeNotifier(),
+      child: const CoffeeApp(),
+    ),
+  );
+}
+
+class CoffeeApp extends StatelessWidget {
+  const CoffeeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final lightTheme = ThemeData(brightness: Brightness.light, primaryColor: const Color(0xFF2A9361), scaffoldBackgroundColor: const Color(0xFFF7F7F7), colorScheme: const ColorScheme.light(primary: Color(0xFF2A9361), secondary: Color(0xFF1E6A45), background: Color(0xFFF7F7F7), onBackground: Colors.black), appBarTheme: AppBarTheme(backgroundColor: const Color(0xFFF7F7F7), elevation: 0, iconTheme: const IconThemeData(color: Colors.black), titleTextStyle: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold)), textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme).apply(bodyColor: Colors.black, displayColor: Colors.black), elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2A9361), foregroundColor: Colors.white)));
+    final darkTheme = ThemeData(brightness: Brightness.dark, primaryColor: Colors.brown[400], scaffoldBackgroundColor: const Color(0xFF1a1a1a), colorScheme: ColorScheme.dark(primary: Colors.brown[300]!, secondary: Colors.brown[400]!, background: const Color(0xFF1a1a1a), onBackground: Colors.white), appBarTheme: AppBarTheme(backgroundColor: const Color(0xFF1a1a1a), elevation: 0, iconTheme: const IconThemeData(color: Colors.white), titleTextStyle: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme).apply(bodyColor: Colors.white, displayColor: Colors.white), elevatedButtonTheme: ElevatedButtonThemeData(style: ElevatedButton.styleFrom(backgroundColor: Colors.brown[400], foregroundColor: Colors.white)));
+
+    return MaterialApp(
+      title: '3Point Caffe & Resto',
+      debugShowCheckedModeBanner: false,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeNotifier.themeMode,
+      // PERUBAHAN: Home sekarang langsung menunjuk ke AuthWrapper
+      home: const AuthWrapper(),
+    );
+  }
+}
+
+// PERUBAHAN: Logika AuthWrapper diperbaiki
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = AuthService();
+    return StreamBuilder<User?>(
+      stream: authService.user,
+      builder: (context, snapshot) {
+        // Selama proses pengecekan, tampilkan loading
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        // Jika snapshot sudah aktif
+        if (snapshot.hasData) {
+          // User sudah login, tampilkan halaman utama
+          return const MainScreen();
+        } else {
+          // User belum login, tampilkan halaman login
+          // Kita tidak lagi menggunakan SplashScreen di sini untuk menghindari loop
+          return const LoginScreen();
+        }
+      },
+    );
+  }
+}
+
+
+// ... Sisa models & data tidak berubah ...
+// (Kode untuk Models, Data, dan semua Screen lainnya tetap sama persis seperti jawaban sebelumnya)
+
+// --- Sisa kode dari jawaban sebelumnya bisa langsung di-paste di sini ---
+// ... (class Order, CartItem, Coffee, coffeeList) ...
+// ... (class SplashScreen, LoginScreen, RegisterScreen, MainScreen, HomePageContent, etc.) ...
+// Catatan: Karena AuthWrapper sekarang menjadi titik masuk, SplashScreen tidak lagi digunakan dalam alur utama,
+// namun kodenya tetap bisa ada di file jika Anda ingin menggunakannya di tempat lain.
+
+// --- MODELS & DATA ---
+enum OrderStatus { ongoing, completed, cancelled }
+class Order { final String id; final List<CartItem> items; final String orderMethod; final double totalAmount; final DateTime orderDate; final OrderStatus status; Order({required this.id, required this.items, required this.orderMethod, required this.totalAmount, required this.orderDate, required this.status});}
+class CartItem { final Coffee coffee; final String size; int quantity; CartItem({required this.coffee, required this.size, this.quantity = 1}); @override bool operator ==(Object other) => identical(this, other) || other is CartItem && runtimeType == other.runtimeType && coffee == other.coffee && size == other.size; @override int get hashCode => coffee.hashCode ^ size.hashCode;}
+class Coffee { final String name; final String image; final Map<String, double> prices; final double rating; final bool isBestSeller; final String description; Coffee({required this.name, required this.image, required this.prices, required this.rating, this.isBestSeller = false, required this.description}); @override bool operator ==(Object other) => identical(this, other) || other is Coffee && runtimeType == other.runtimeType && name == other.name; @override int get hashCode => name.hashCode;}
+const String newImageUrl = 'https://plus.unsplash.com/premium_photo-1674327105074-46dd8319164b?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+final List<Coffee> coffeeList = [ Coffee(name: 'Cappuccino', image: newImageUrl, prices: {'S': 4.33, 'M': 4.53, 'L': 4.83}, rating: 4.8, isBestSeller: true, description: 'A cappuccino is an espresso-based coffee drink that originated in Italy, and is traditionally prepared with steamed milk foam.'), Coffee(name: 'Macchiato', image: newImageUrl, prices: {'S': 3.70, 'M': 3.90, 'L': 4.20}, rating: 4.7, description: 'An espresso macchiato is a coffee beverage with a small amount of milk, usually foamed. In Italian, macchiato means "stained" or "spotted".'), Coffee(name: 'Latte', image: newImageUrl, prices: {'S': 4.00, 'M': 4.20, 'L': 4.50}, rating: 4.5, isBestSeller: true, description: 'A latte or caffè latte is a coffee drink made with espresso and steamed milk. The word comes from the Italian caffè e latte, which means "coffee and milk".'), Coffee(name: 'Americano', image: newImageUrl, prices: {'S': 3.30, 'M': 3.50, 'L': 3.80}, rating: 4.3, description: 'Caffè Americano is a type of coffee drink prepared by diluting an espresso with hot water, giving it a similar strength to, but different flavor from, traditionally brewed coffee.')];
+
+// --- SCREENS ---
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    // Tombol di sini sekarang tidak lagi digunakan di alur utama,
+    // tapi bisa dipakai untuk onboarding di masa depan.
+    Future.delayed(const Duration(seconds: 2), () {
+      if (context.mounted) {
+        Navigator.of(context).pushReplacement(
+            PageRouteBuilder(pageBuilder: (_,__,___) => const AuthWrapper(), transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c))
+        );
+      }
+    });
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(child: Text('Kopi Kap', style: GoogleFonts.poppins(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white))),
+    );
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthService _auth = AuthService();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 40),
+                Text('Welcome Back!', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('Login to continue your coffee journey', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey)),
+                const SizedBox(height: 48),
+                TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: 'Email', prefixIcon: const Icon(Icons.email_outlined), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                const SizedBox(height: 16),
+                TextField(controller: _passwordController, obscureText: true, decoration: InputDecoration(labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+                const SizedBox(height: 32),
+
+                ElevatedButton(
+                  onPressed: _isLoading ? null : () async {
+                    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                      _showError('Email dan Password tidak boleh kosong.');
+                      return;
+                    }
+                    setState(() => _isLoading = true);
+                    final user = await _auth.signInWithEmail(_emailController.text.trim(), _passwordController.text.trim());
+                    if (!mounted) return;
+                    setState(() => _isLoading = false);
+                    if (user == null) _showError('Login gagal. Periksa kembali email dan password Anda.');
+                  },
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: _isLoading ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Login', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 24),
+                const Row(children: [Expanded(child: Divider(thickness: 1)), Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Text('OR')), Expanded(child: Divider(thickness: 1))]),
+                const SizedBox(height: 24),
+
+                OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () async {
+                    setState(() => _isLoading = true);
+                    final user = await _auth.signInWithGoogle();
+                    if (!mounted) return;
+                    setState(() => _isLoading = false);
+                    if (user == null) _showError('Login dengan Google dibatalkan.');
+                  },
+                  icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg', height: 24),
+                  label: const Text('Login with Google'),
+                  style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.onBackground, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), side: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!)),
+                ),
+                const SizedBox(height: 48),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Text("Don't have an account? "),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                    child: Text('Register', style: TextStyle(fontWeight: FontWeight.bold, color: theme.primaryColor)),
+                  )
+                ]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+  @override
+  State<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends State<RegisterScreen> {
+  final AuthService _auth = AuthService();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Create your account', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 48),
+              TextField(controller: _fullNameController, decoration: InputDecoration(labelText: 'Full Name', prefixIcon: const Icon(Icons.person_outline), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 16),
+              TextField(controller: _emailController, keyboardType: TextInputType.emailAddress, decoration: InputDecoration(labelText: 'Email', prefixIcon: const Icon(Icons.email_outlined), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 16),
+              TextField(controller: _passwordController, obscureText: true, decoration: InputDecoration(labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _isLoading ? null : () async {
+                  if (_fullNameController.text.isEmpty || _emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                    _showError('Semua field harus diisi.');
+                    return;
+                  }
+                  setState(() => _isLoading = true);
+                  final user = await _auth.registerWithEmail(_emailController.text.trim(), _passwordController.text.trim(), _fullNameController.text.trim());
+                  if (!mounted) return;
+                  setState(() => _isLoading = false);
+                  if (user == null) {
+                    _showError('Gagal mendaftar. Pastikan email valid & password kuat.');
+                  } else {
+                    Navigator.of(context).pop();
+                  }
+                },
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: _isLoading ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Register', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+// ... Sisa kode (MainScreen, HomePageContent, dll) tetap sama persis seperti jawaban sebelumnya.
+// Anda dapat menyalin sisa kode dari jawaban sebelumnya untuk melengkapi file ini.
+// The rest of the code (MainScreen, HomePageContent, etc.) remains exactly the same as the previous answer.
+// You can copy the rest of the code from the previous answer to complete this file.
+// (All other screen and widget classes are pasted below for completeness)
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
+  final List<Coffee> _favoriteCoffees = [];
+  final List<CartItem> _cartItems = [];
+  final List<Order> _allOrders = [];
+  void _toggleFavorite(Coffee coffee) => setState(() => _favoriteCoffees.contains(coffee) ? _favoriteCoffees.remove(coffee) : _favoriteCoffees.add(coffee));
+  void _placeOrder(List<CartItem> items, String method, double total) { setState(() { final newOrder = Order(id: 'ID-${DateTime.now().millisecondsSinceEpoch}', items: List<CartItem>.from(items), orderMethod: method, totalAmount: total, orderDate: DateTime.now(), status: OrderStatus.ongoing); _allOrders.add(newOrder); _cartItems.clear(); }); }
+  void _addToCart(Coffee coffee, String size) { setState(() { final newItem = CartItem(coffee: coffee, size: size); final itemIndex = _cartItems.indexOf(newItem); if (itemIndex != -1) _cartItems[itemIndex].quantity++; else _cartItems.add(newItem); }); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${coffee.name} ($size) added to cart!'), duration: const Duration(seconds: 1), backgroundColor: Colors.green)); }
+  void _incrementCartItem(CartItem item) => setState(() => item.quantity++);
+  void _decrementCartItem(CartItem item) => setState(() => item.quantity > 1 ? item.quantity-- : _cartItems.remove(item));
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+
+  @override
+  Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final isDarkMode = themeNotifier.themeMode == ThemeMode.dark;
+    final List<Widget> pages = [
+      HomePageContent(favoriteCoffees: _favoriteCoffees, onToggleFavorite: _toggleFavorite, onAddToCart: _addToCart),
+      FavoritesScreen(favoriteCoffees: _favoriteCoffees, onToggleFavorite: _toggleFavorite),
+      CartScreen(cartItems: _cartItems, onIncrement: _incrementCartItem, onDecrement: _decrementCartItem, onPlaceOrder: _placeOrder),
+      MyOrdersScreen(allOrders: _allOrders),
+      const ProfileScreen(),
+    ];
+    return Scaffold(
+      body: IndexedStack(index: _selectedIndex, children: pages),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favorites'),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Cart'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Orders'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+        selectedItemColor: isDarkMode ? Colors.brown[300] : Theme.of(context).primaryColor,
+        unselectedItemColor: isDarkMode ? Colors.white54 : Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        showUnselectedLabels: true,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+        unselectedLabelStyle: const TextStyle(fontSize: 10),
+      ),
+    );
+  }
+}
+class HomePageContent extends StatefulWidget {
+  final List<Coffee> favoriteCoffees;
+  final Function(Coffee) onToggleFavorite;
+  final Function(Coffee, String) onAddToCart;
+  const HomePageContent({super.key, required this.favoriteCoffees, required this.onToggleFavorite, required this.onAddToCart});
+  @override
+  State<HomePageContent> createState() => _HomePageContentState();
+}
+
+class _HomePageContentState extends State<HomePageContent> {
+  final List<String> _categories = ['All', 'Cappuccino', 'Macchiato', 'Latte', 'Americano'];
+  String _selectedCategory = 'All';
+  String _searchQuery = '';
+  List<Coffee> _displayedCoffees = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _runFilter();
+  }
+
+  void _runFilter() {
+    List<Coffee> results = coffeeList.where((coffee) => _searchQuery.isEmpty || coffee.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    if (_selectedCategory != 'All') results = results.where((coffee) => coffee.name == _selectedCategory).toList();
+    setState(() => _displayedCoffees = results);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        children: [
+          const SizedBox(height: 20),
+          _buildHeader(context),
+          const SizedBox(height: 30),
+          _buildSearchBar(),
+          const SizedBox(height: 30),
+          _buildCategoryTabs(context),
+          const SizedBox(height: 20),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            child: _displayedCoffees.isEmpty
+                ? EmptyStateWidget(key: UniqueKey())
+                : GridView.builder(
+              key: ValueKey(_selectedCategory),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: 20, mainAxisSpacing: 20),
+              itemCount: _displayedCoffees.length,
+              itemBuilder: (context, index) {
+                final coffee = _displayedCoffees[index];
+                return CoffeeCard(coffee: coffee, isFavorite: widget.favoriteCoffees.contains(coffee), onToggleFavorite: widget.onToggleFavorite, onAddToCart: widget.onAddToCart);
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final isDarkMode = Provider.of<ThemeNotifier>(context).themeMode == ThemeMode.dark;
+    return TextField(onChanged: (value) { _searchQuery = value; _runFilter(); }, decoration: InputDecoration(hintText: 'Search coffee', hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey), prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.white54 : Colors.grey), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)));
+  }
+
+  Widget _buildCategoryTabs(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _categories.length,
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          return CategoryTabWidget(category: category, isSelected: _selectedCategory == category, onTap: () { setState(() => _selectedCategory = category); _runFilter(); });
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = FirebaseAuth.instance.currentUser;
+    String greetingName = user?.displayName ?? 'Guest';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Hello, $greetingName', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)), Text('Mau ngopi apa hari ini?', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey))]),
+        CircleAvatar(radius: 25, backgroundImage: NetworkImage(user?.photoURL ?? 'https://i.imgur.com/Z3N57Dk.png')),
+      ],
+    );
+  }
+}
+class CategoryTabWidget extends StatelessWidget {
+  final String category;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const CategoryTabWidget({super.key, required this.category, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 25),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(category, style: TextStyle(fontSize: 18, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? theme.colorScheme.primary : theme.textTheme.bodyLarge?.color?.withOpacity(0.7))),
+            if (isSelected) Container(margin: const EdgeInsets.only(top: 5), height: 3, width: 22, color: theme.colorScheme.primary)
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EmptyStateWidget extends StatelessWidget {
+  const EmptyStateWidget({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 50),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.network('https://i.imgur.com/sBMS2h6.png', height: 150),
+          const SizedBox(height: 20),
+          const Text('Tidak Ada Data', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text('Sepertinya belum ada apa-apa di sini.', style: TextStyle(color: Colors.grey[600]), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class CoffeeCard extends StatelessWidget {
+  final Coffee coffee;
+  final bool isFavorite;
+  final Function(Coffee) onToggleFavorite;
+  final Function(Coffee, String) onAddToCart;
+  const CoffeeCard({super.key, required this.coffee, required this.isFavorite, required this.onToggleFavorite, required this.onAddToCart});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(PageRouteBuilder(pageBuilder: (_,__,___) => ProductDetailScreen(coffee: coffee, isFavorite: isFavorite, onToggleFavorite: onToggleFavorite, onAddToCart: onAddToCart), transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c))),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDarkMode ? const Color(0xFF262626) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [if(!isDarkMode) BoxShadow(color: Colors.grey.withOpacity(0.1), spreadRadius: 1, blurRadius: 15, offset: const Offset(0, 5))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Stack(
+                children: [
+                  Hero(
+                    tag: coffee.image + coffee.name,
+                    child: Container(decoration: BoxDecoration(borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)), image: DecorationImage(image: NetworkImage(coffee.image), fit: BoxFit.cover))),
+                  ),
+                  Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), borderRadius: BorderRadius.circular(10)),
+                            child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 14), const SizedBox(width: 4), Text(coffee.rating.toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))]),
+                          ),
+                          if (coffee.isBestSeller) const SizedBox(width: 5),
+                          if (coffee.isBestSeller) Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: theme.primaryColor, borderRadius: BorderRadius.circular(10)), child: const Text('Best Seller', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)))
+                        ],
+                      )
+                  )
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(coffee.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('\$${coffee.prices['M']!.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+                      GestureDetector(
+                        onTap: () => onAddToCart(coffee, 'M'),
+                        child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.add, color: Colors.white, size: 20)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ProductDetailScreen extends StatefulWidget {
+  final Coffee coffee;
+  final bool isFavorite;
+  final Function(Coffee) onToggleFavorite;
+  final Function(Coffee, String) onAddToCart;
+  const ProductDetailScreen({super.key, required this.coffee, required this.isFavorite, required this.onToggleFavorite, required this.onAddToCart});
+  @override
+  _ProductDetailScreenState createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  String _selectedSize = 'M';
+  late bool _isFavorite;
+  late double _currentPrice;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFavorite = widget.isFavorite;
+    _currentPrice = widget.coffee.prices[_selectedSize]!;
+  }
+
+  void _updatePrice(String size) {
+    setState(() {
+      _selectedSize = size;
+      _currentPrice = widget.coffee.prices[_selectedSize]!;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+          leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: theme.iconTheme.color), onPressed: () => Navigator.of(context).pop()),
+          actions: [IconButton(icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border, color: _isFavorite ? Colors.redAccent : theme.iconTheme.color, size: 28), onPressed: () { setState(() { _isFavorite = !_isFavorite; }); widget.onToggleFavorite(widget.coffee); })]),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 250, width: double.infinity, child: Hero(tag: widget.coffee.image + widget.coffee.name, child: Image.network(widget.coffee.image, fit: BoxFit.contain))),
+            const SizedBox(height: 30),
+            Text(widget.coffee.name, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Row(children: [const Icon(Icons.star, color: Colors.amber, size: 20), const SizedBox(width: 5), Text(widget.coffee.rating.toString(), style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text(' (2,330)', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey))]),
+            const SizedBox(height: 20),
+            const Text('Description', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text(widget.coffee.description, style: theme.textTheme.bodyLarge?.copyWith(color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7), height: 1.5)),
+            const SizedBox(height: 20),
+            const Text('Size', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: ['S', 'M', 'L'].map((size) {
+                final isSelected = _selectedSize == size;
+                return ChoiceChip(
+                  label: Text(size, style: TextStyle(color: isSelected ? Colors.white : theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.bold)),
+                  selected: isSelected,
+                  onSelected: (selected) => _updatePrice(size),
+                  backgroundColor: theme.colorScheme.background,
+                  selectedColor: theme.colorScheme.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: isSelected ? theme.colorScheme.primary : Colors.grey[300]!)),
+                  showCheckmark: false,
+                  padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomBar(context),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [const Text('Price', style: TextStyle(color: Colors.grey)), Text('\$${_currentPrice.toStringAsFixed(2)}', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold))]),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+            onPressed: () => widget.onAddToCart(widget.coffee, _selectedSize),
+            child: const Text('Add to Cart', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final themeNotifier = Provider.of<ThemeNotifier>(context);
+    final isDarkMode = themeNotifier.themeMode == ThemeMode.dark;
+    final authService = AuthService();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          if (currentUser != null)
+            ListTile(
+              leading: CircleAvatar(radius: 30, backgroundImage: NetworkImage(currentUser.photoURL ?? 'https://i.imgur.com/Z3N57Dk.png')),
+              title: Text(currentUser.displayName ?? 'Guest User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              subtitle: Text(currentUser.email ?? ''),
+            ),
+          const Divider(height: 30),
+          SwitchListTile(title: const Text('Dark Mode'), value: isDarkMode, onChanged: (value) => themeNotifier.toggleTheme(value), secondary: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode)),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () async => await authService.signOut(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FavoritesScreen extends StatelessWidget {
+  final List<Coffee> favoriteCoffees;
+  final Function(Coffee) onToggleFavorite;
+  const FavoritesScreen({super.key, required this.favoriteCoffees, required this.onToggleFavorite});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Favorites')),
+      body: favoriteCoffees.isEmpty
+          ? const EmptyStateWidget()
+          : ListView.builder(
+        padding: const EdgeInsets.all(8.0),
+        itemCount: favoriteCoffees.length,
+        itemBuilder: (context, index) {
+          final coffee = favoriteCoffees[index];
+          return Card(
+            color: isDarkMode ? Colors.grey[850] : Colors.white,
+            elevation: isDarkMode ? 1 : 2,
+            margin: const EdgeInsets.symmetric(vertical: 8.0),
+            child: ListTile(leading: CircleAvatar(backgroundImage: NetworkImage(coffee.image)), title: Text(coffee.name), subtitle: Text('\$${coffee.prices['M']}') , trailing: IconButton(icon: const Icon(Icons.favorite, color: Colors.redAccent), onPressed: () => onToggleFavorite(coffee))),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class CartScreen extends StatelessWidget {
+  final List<CartItem> cartItems;
+  final Function(CartItem) onIncrement;
+  final Function(CartItem) onDecrement;
+  final Function(List<CartItem>, String, double) onPlaceOrder;
+  const CartScreen({super.key, required this.cartItems, required this.onIncrement, required this.onDecrement, required this.onPlaceOrder});
+  double get _totalPrice => cartItems.isEmpty ? 0 : cartItems.map((item) => item.coffee.prices[item.size]! * item.quantity).reduce((a, b) => a + b);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Cart')),
+      body: cartItems.isEmpty
+          ? const EmptyStateWidget()
+          : Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(8.0),
+              itemCount: cartItems.length,
+              itemBuilder: (context, index) {
+                final item = cartItems[index];
+                final price = item.coffee.prices[item.size]! * item.quantity;
+                return Card(
+                  color: isDarkMode ? Colors.grey[850] : Colors.white,
+                  elevation: isDarkMode ? 1 : 2,
+                  margin: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: ListTile(
+                    leading: CircleAvatar(backgroundImage: NetworkImage(item.coffee.image)),
+                    title: Text(item.coffee.name),
+                    subtitle: Text('Size: ${item.size} | Price: \$${price.toStringAsFixed(2)}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [IconButton(icon: const Icon(Icons.remove), onPressed: () => onDecrement(item)), Text('${item.quantity}', style: const TextStyle(fontSize: 16)), IconButton(icon: const Icon(Icons.add), onPressed: () => onIncrement(item))],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          _buildCheckoutSection(context),
+        ],
+      ),
+    );
+  }
+
+  void _showOrderTypeSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => OrderTypeSelectionSheet(cartItems: cartItems, onPlaceOrder: onPlaceOrder),
+    );
+  }
+
+  Widget _buildCheckoutSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
+        boxShadow: [if(!isDarkMode) BoxShadow(color: Colors.black.withOpacity(0.1), spreadRadius: 0, blurRadius: 10)],
+      ),
+      child: Column(
+        children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Total Price', style: TextStyle(fontSize: 20, color: Colors.grey[600])), Text('\$${_totalPrice.toStringAsFixed(2)}', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold))]),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+            onPressed: cartItems.isEmpty ? null : () => _showOrderTypeSheet(context),
+            child: const Text('Checkout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OrderTypeSelectionSheet extends StatelessWidget {
+  final List<CartItem> cartItems;
+  final Function(List<CartItem>, String, double) onPlaceOrder;
+  const OrderTypeSelectionSheet({super.key, required this.cartItems, required this.onPlaceOrder});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    void navigateToSummary(String method) {
+      Navigator.pop(context);
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderSummaryScreen(cartItems: cartItems, orderMethod: method, onPlaceOrder: onPlaceOrder)));
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Pilih Metode Pemesanan', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          ListTile(leading: Icon(Icons.delivery_dining, color: theme.colorScheme.primary), title: const Text('Delivery', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Delivery')),
+          ListTile(leading: Icon(Icons.shopping_bag, color: theme.colorScheme.primary), title: const Text('Take Away', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Take Away')),
+          ListTile(leading: Icon(Icons.restaurant, color: theme.colorScheme.primary), title: const Text('Dine In', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Dine In')),
+          const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+class OrderSummaryScreen extends StatelessWidget {
+  final List<CartItem> cartItems;
+  final String orderMethod;
+  final Function(List<CartItem>, String, double) onPlaceOrder;
+  const OrderSummaryScreen({super.key, required this.cartItems, required this.orderMethod, required this.onPlaceOrder});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final double subtotal = cartItems.map((item) => item.coffee.prices[item.size]! * item.quantity).reduce((a, b) => a + b);
+    final double deliveryFee = orderMethod == 'Delivery' ? 2.00 : 0.00;
+    final double serviceFee = 0.50;
+    final double total = subtotal + deliveryFee + serviceFee;
+
+    void _navigateToPaymentGateway(BuildContext context) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PaymentGatewayScreen(
+          totalAmount: total,
+          onPaymentSuccess: () {
+            onPlaceOrder(cartItems, orderMethod, total);
+            _showThankYouDialog(context);
+          },
+        ),
+      ));
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Rincian Pesanan')),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            color: isDarkMode ? Colors.grey[850] : Colors.white,
+            elevation: isDarkMode ? 1 : 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(orderMethod == 'Delivery' ? Icons.delivery_dining : (orderMethod == 'Take Away' ? Icons.shopping_bag : Icons.restaurant), color: theme.colorScheme.primary, size: 30),
+                  const SizedBox(width: 16),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Metode', style: TextStyle(color: Colors.grey)), Text(orderMethod, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))])
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text('Ringkasan Item', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...cartItems.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item.coffee.image, width: 50, height: 50, fit: BoxFit.cover)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)), Text('Size: ${item.size} • Qty: ${item.quantity}', style: const TextStyle(color: Colors.grey))])),
+                Text('\$${(item.coffee.prices[item.size]! * item.quantity).toStringAsFixed(2)}'),
+              ],
+            ),
+          )).toList(),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          Text('Rincian Biaya', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          _buildCostRow('Subtotal', subtotal),
+          _buildCostRow('Biaya Layanan & Pajak', serviceFee),
+          if(deliveryFee > 0) _buildCostRow('Biaya Pengiriman', deliveryFee),
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total Pembayaran', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('\$${total.toStringAsFixed(2)}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+            ],
+          ),
+        ],
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+          onPressed: () => _navigateToPaymentGateway(context),
+          child: const Text('Konfirmasi & Bayar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ),
+      ),
+    );
+  }
+
+  void _showThankYouDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Pembayaran Berhasil!', textAlign: TextAlign.center),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.check_circle, color: Colors.green, size: 60),
+              const SizedBox(height: 16),
+              const Text('Terima kasih! Pesanan Anda sedang diproses.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const MainScreen()), (Route<dynamic> route) => false);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCostRow(String title, double amount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.grey)), Text('\$${amount.toStringAsFixed(2)}')]),
+    );
+  }
+}
+
+class PaymentGatewayScreen extends StatefulWidget {
+  final double totalAmount;
+  final VoidCallback onPaymentSuccess;
+  const PaymentGatewayScreen({super.key, required this.totalAmount, required this.onPaymentSuccess});
+
+  @override
+  State<PaymentGatewayScreen> createState() => _PaymentGatewayScreenState();
+}
+
+class _PaymentGatewayScreenState extends State<PaymentGatewayScreen> {
+  bool _isLoading = false;
+
+  void _simulatePayment(BuildContext context) {
+    setState(() => _isLoading = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onPaymentSuccess();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Secure Payment'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(40.0),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text('Total: \$${widget.totalAmount.toStringAsFixed(2)}', style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ),
+      body: Stack(
+        children: [
+          ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildSectionHeader('E-Wallet'),
+              _buildPaymentTile('GoPay', 'https://i.imgur.com/t4jB3sY.png'),
+              _buildPaymentTile('OVO', 'https://i.imgur.com/r3x1g2A.png'),
+              const Divider(height: 32),
+              _buildSectionHeader('Bank Transfer / Virtual Account'),
+              _buildPaymentTile('BCA Virtual Account', 'https://i.imgur.com/v8MV30d.png'),
+              _buildPaymentTile('Mandiri Virtual Account', 'https://i.imgur.com/5b8g2wv.png'),
+              const Divider(height: 32),
+              _buildSectionHeader('Credit / Debit Card'),
+              _buildPaymentTile('Visa / Mastercard', 'https://i.imgur.com/CsS4yWc.png'),
+            ],
+          ),
+          if (_isLoading) Container(color: Colors.black.withOpacity(0.5), child: const Center(child: CircularProgressIndicator())),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) => Padding(padding: const EdgeInsets.only(bottom: 8.0), child: Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.grey)));
+
+  Widget _buildPaymentTile(String title, String logoUrl) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Image.network(logoUrl, height: 24, width: 40, fit: BoxFit.contain),
+        title: Text(title),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: () => _simulatePayment(context),
+      ),
+    );
+  }
+}
+
+class MyOrdersScreen extends StatelessWidget {
+  final List<Order> allOrders;
+  const MyOrdersScreen({super.key, required this.allOrders});
+
+  @override
+  Widget build(BuildContext context) {
+    final ongoingOrders = allOrders.where((order) => order.status == OrderStatus.ongoing).toList();
+    final historyOrders = allOrders.where((order) => order.status != OrderStatus.ongoing).toList();
+    final theme = Theme.of(context);
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          title: const Text('Pesanan Saya'),
+          bottom: TabBar(
+            indicatorColor: theme.colorScheme.primary,
+            labelColor: theme.colorScheme.primary,
+            unselectedLabelColor: Colors.grey,
+            tabs: const [Tab(text: 'Sedang Berlangsung'), Tab(text: 'Riwayat')],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            ongoingOrders.isEmpty
+                ? const EmptyStateWidget()
+                : ListView.builder(padding: const EdgeInsets.all(8), itemCount: ongoingOrders.length, itemBuilder: (context, index) => OrderCard(order: ongoingOrders[index])),
+            historyOrders.isEmpty
+                ? const EmptyStateWidget()
+                : ListView.builder(padding: const EdgeInsets.all(8), itemCount: historyOrders.length, itemBuilder: (context, index) => OrderCard(order: historyOrders[index])),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class OrderCard extends StatelessWidget {
+  final Order order;
+  const OrderCard({super.key, required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
+    String statusText = '';
+    Color statusColor = Colors.grey;
+
+    switch(order.status) {
+      case OrderStatus.ongoing: statusText = 'Ongoing'; statusColor = Colors.blue; break;
+      case OrderStatus.completed: statusText = 'Completed'; statusColor = Colors.green; break;
+      case OrderStatus.cancelled: statusText = 'Cancelled'; statusColor = Colors.red; break;
+    }
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: isDarkMode ? 1 : 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Order ${order.id}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                  child: Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+            const Divider(height: 20),
+            Text('Tanggal: ${DateFormat('d MMMM yyyy, HH:mm').format(order.orderDate)}', style: const TextStyle(color: Colors.grey)),
+            Text('Metode: ${order.orderMethod}'),
+            Text('Jumlah Item: ${order.items.length}'),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text('Total: ', style: TextStyle(fontSize: 16)),
+                Text('\$${order.totalAmount.toStringAsFixed(2)}', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
