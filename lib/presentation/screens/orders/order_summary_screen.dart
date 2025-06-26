@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import '../../../data/models/cart_item.dart';
-import '../../screens/orders/payment_gateway_screen.dart';
-import '../main_screen.dart'; // Untuk navigasi kembali ke home
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
-class OrderSummaryScreen extends StatelessWidget {
+import 'payment_webview_screen.dart';
+import '../../../data/models/cart_item.dart';
+import '../main_screen.dart';
+
+class OrderSummaryScreen extends StatefulWidget {
   final List<CartItem> cartItems;
   final String orderMethod;
   final Function(List<CartItem>, String, double) onPlaceOrder;
@@ -16,164 +20,93 @@ class OrderSummaryScreen extends StatelessWidget {
   });
 
   @override
+  State<OrderSummaryScreen> createState() => _OrderSummaryScreenState();
+}
+
+class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
+  bool _isProcessingPayment = false;
+
+  // --- Kalkulasi Harga ---
+  double get _subtotal => widget.cartItems.isNotEmpty ? widget.cartItems.map((item) => item.coffee.prices[item.size]! * item.quantity).reduce((a, b) => a + b) : 0.0;
+  double get _deliveryFee => widget.orderMethod == 'Delivery' ? 2.00 : 0.00;
+  double get _serviceFee => 0.50;
+  double get _total => _subtotal + _deliveryFee + _serviceFee;
+
+  // --- Alur Pembayaran dengan Xendit ---
+  Future<void> _processPayment() async {
+    if (_isProcessingPayment) return;
+    setState(() { _isProcessingPayment = true; });
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    try {
+      final dio = Dio();
+      final response = await dio.post(
+        "https://2b50-103-136-57-231.ngrok-free.app/create-xendit-invoice", // GANTI DENGAN URL BACKEND ANDA
+        data: {
+          "order_id": 'KOPIKAP-${DateTime.now().millisecondsSinceEpoch}',
+          "total": _total,
+          "user_name": user?.displayName ?? "Guest",
+          "user_email": user?.email ?? "guest@email.com",
+        },
+      );
+
+      final String? invoiceUrl = response.data['invoice_url'];
+      if (invoiceUrl == null) throw Exception("Gagal mendapatkan URL invoice.");
+
+      // Buat pesanan di app dengan status "ongoing" SEBELUM ke halaman pembayaran
+      widget.onPlaceOrder(widget.cartItems, widget.orderMethod, _total);
+
+      // Luncurkan WebView dan tunggu hasilnya
+      final paymentResult = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => PaymentWebViewScreen(url: invoiceUrl)),
+      );
+
+      if (paymentResult == true && mounted) {
+        // Jika pembayaran sukses dari WebView, tampilkan dialog dan kembali ke home
+        _showDialogMessage(context, 'Menunggu Konfirmasi', 'Terima kasih! Kami akan segera mengupdate status pesanan Anda setelah pembayaran dikonfirmasi oleh Xendit.');
+      }
+
+    } catch (e) {
+      if (mounted) {
+        _showDialogMessage(context, 'Error', "Tidak dapat membuat sesi pembayaran. Silakan coba lagi.", isSuccess: false);
+      }
+    } finally {
+      if (mounted) setState(() { _isProcessingPayment = false; });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-
-    // --- Kalkulasi Harga ---
-    final double subtotal = cartItems
-        .map((item) => item.coffee.prices[item.size]! * item.quantity)
-        .reduce((a, b) => a + b);
-    final double deliveryFee = orderMethod == 'Delivery' ? 2.00 : 0.00;
-    final double serviceFee = 0.50;
-    final double total = subtotal + deliveryFee + serviceFee;
-
-    void _navigateToPaymentGateway(BuildContext context) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => PaymentGatewayScreen(
-            totalAmount: total,
-            onPaymentSuccess: () {
-              // Panggil fungsi utama untuk membuat pesanan & membersihkan keranjang
-              onPlaceOrder(cartItems, orderMethod, total);
-              // Tampilkan dialog sukses
-              _showThankYouDialog(context);
-            },
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Rincian Pesanan')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Bagian Metode Pemesanan
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            color: isDarkMode ? Colors.grey[850] : Colors.white,
-            elevation: isDarkMode ? 1 : 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Icon(
-                    orderMethod == 'Delivery'
-                        ? Icons.delivery_dining
-                        : (orderMethod == 'Take Away'
-                              ? Icons.shopping_bag
-                              : Icons.restaurant),
-                    color: theme.colorScheme.primary,
-                    size: 30,
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Metode',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                      Text(
-                        orderMethod,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildOrderMethodCard(theme),
           const SizedBox(height: 24),
-
-          // Bagian Daftar Item
-          Text(
-            'Ringkasan Item',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text('Ringkasan Item', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ...cartItems
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.coffee.image,
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.coffee.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Size: ${item.size} • Qty: ${item.quantity}',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '\$${(item.coffee.prices[item.size]! * item.quantity).toStringAsFixed(2)}',
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(),
+          ...widget.cartItems.map((item) => _buildCartItemTile(item)),
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
-
-          // Bagian Rincian Biaya
-          Text(
-            'Rincian Biaya',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text('Rincian Biaya', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          _buildCostRow('Subtotal', subtotal),
-          _buildCostRow('Biaya Layanan & Pajak', serviceFee),
-          if (deliveryFee > 0) _buildCostRow('Biaya Pengiriman', deliveryFee),
+          _buildCostRow('Subtotal', _subtotal),
+          _buildCostRow('Biaya Layanan & Pajak', _serviceFee),
+          if(_deliveryFee > 0) _buildCostRow('Biaya Pengiriman', _deliveryFee),
           const SizedBox(height: 8),
           const Divider(),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Pembayaran',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                '\$${total.toStringAsFixed(2)}',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
+              Text('Total Pembayaran', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              Text('\$${_total.toStringAsFixed(2)}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
             ],
           ),
         ],
@@ -181,45 +114,78 @@ class OrderSummaryScreen extends StatelessWidget {
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 50),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
-          onPressed: () => _navigateToPaymentGateway(context),
-          child: const Text(
-            'Konfirmasi & Bayar',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+          onPressed: _isProcessingPayment ? null : _processPayment,
+          child: _isProcessingPayment
+              ? const CircularProgressIndicator(color: Colors.white)
+              : const Text('Konfirmasi & Bayar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         ),
       ),
     );
   }
 
-  void _showThankYouDialog(BuildContext context) {
+  // --- Helper Widgets & Functions ---
+
+  Widget _buildOrderMethodCard(ThemeData theme) {
+    final isDarkMode = theme.brightness == Brightness.dark;
+    IconData icon;
+    switch(widget.orderMethod) {
+      case 'Delivery': icon = Icons.delivery_dining; break;
+      case 'Take Away': icon = Icons.shopping_bag; break;
+      default: icon = Icons.restaurant;
+    }
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: isDarkMode ? Colors.grey[850] : Colors.white,
+      elevation: isDarkMode ? 1 : 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary, size: 30),
+            const SizedBox(width: 16),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Metode', style: TextStyle(color: Colors.grey)), Text(widget.orderMethod, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))])
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCartItemTile(CartItem item) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item.coffee.image, width: 50, height: 50, fit: BoxFit.cover)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)), Text('Size: ${item.size} • Qty: ${item.quantity}', style: const TextStyle(color: Colors.grey))])),
+          Text('\$${(item.coffee.prices[item.size]! * item.quantity).toStringAsFixed(2)}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCostRow(String title, double amount) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.grey)), Text('\$${amount.toStringAsFixed(2)}')]),
+    );
+  }
+
+  void _showDialogMessage(BuildContext context, String title, String message, {bool isSuccess = true}) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Pembayaran Berhasil!',
-            textAlign: TextAlign.center,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(title, textAlign: TextAlign.center),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 60),
+              Icon(isSuccess ? Icons.check_circle : Icons.error, color: isSuccess ? Colors.green : Colors.red, size: 60),
               const SizedBox(height: 16),
-              const Text(
-                'Terima kasih! Pesanan Anda sedang diproses.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
+              Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
             ],
           ),
           actions: <Widget>[
@@ -227,28 +193,17 @@ class OrderSummaryScreen extends StatelessWidget {
               child: const Text('OK'),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const MainScreen()),
-                  (Route<dynamic> route) => false,
-                );
+                if (isSuccess) {
+                  // Kembali ke halaman utama, menghapus semua halaman sebelumnya
+                  Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const MainScreen()),
+                          (Route<dynamic> route) => false);
+                }
               },
             ),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildCostRow(String title, double amount) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title, style: const TextStyle(color: Colors.grey)),
-          Text('\$${amount.toStringAsFixed(2)}'),
-        ],
-      ),
     );
   }
 }

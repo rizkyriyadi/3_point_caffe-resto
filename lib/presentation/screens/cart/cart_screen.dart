@@ -17,11 +17,7 @@ class CartScreen extends StatelessWidget {
     required this.onPlaceOrder,
   });
 
-  double get _totalPrice => cartItems.isEmpty
-      ? 0
-      : cartItems
-            .map((item) => item.coffee.prices[item.size]! * item.quantity)
-            .reduce((a, b) => a + b);
+  double get _totalPrice => cartItems.isEmpty ? 0 : cartItems.map((item) => item.coffee.prices[item.size]! * item.quantity).reduce((a, b) => a + b);
 
   @override
   Widget build(BuildContext context) {
@@ -32,65 +28,47 @@ class CartScreen extends StatelessWidget {
       body: cartItems.isEmpty
           ? const EmptyStateWidget()
           : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(8.0),
-                    itemCount: cartItems.length,
-                    itemBuilder: (context, index) {
-                      final item = cartItems[index];
-                      final price =
-                          item.coffee.prices[item.size]! * item.quantity;
-                      return Card(
-                        color: isDarkMode ? Colors.grey[850] : Colors.white,
-                        elevation: isDarkMode ? 1 : 2,
-                        margin: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: NetworkImage(item.coffee.image),
-                          ),
-                          title: Text(item.coffee.name),
-                          subtitle: Text(
-                            'Size: ${item.size} | Price: \$${price.toStringAsFixed(2)}',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove),
-                                onPressed: () => onDecrement(item),
-                              ),
-                              Text(
-                                '${item.quantity}',
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add),
-                                onPressed: () => onIncrement(item),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(8.0),
+              itemCount: cartItems.length,
+              itemBuilder: (context, index) {
+                final item = cartItems[index];
+                final price = item.coffee.prices[item.size]! * item.quantity;
+                return Card(
+                  color: isDarkMode ? Colors.grey[850] : Colors.white,
+                  elevation: isDarkMode ? 1 : 2,
+                  margin: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: ListTile(
+                    leading: CircleAvatar(backgroundImage: NetworkImage(item.coffee.image)),
+                    title: Text(item.coffee.name),
+                    subtitle: Text('Size: ${item.size} | Price: \$${price.toStringAsFixed(2)}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(icon: const Icon(Icons.remove), onPressed: () => onDecrement(item)),
+                        Text('${item.quantity}', style: const TextStyle(fontSize: 16)),
+                        IconButton(icon: const Icon(Icons.add), onPressed: () => onIncrement(item)),
+                      ],
+                    ),
                   ),
-                ),
-                _buildCheckoutSection(context),
-              ],
+                );
+              },
             ),
+          ),
+          _buildCheckoutSection(context),
+        ],
+      ),
     );
   }
 
   void _showOrderTypeSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => OrderTypeSelectionSheet(
-        cartItems: cartItems,
-        onPlaceOrder: onPlaceOrder,
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => OrderTypeSelectionSheet(cartItems: cartItems, onPlaceOrder: onPlaceOrder),
     );
   }
 
@@ -101,47 +79,22 @@ class CartScreen extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
-        boxShadow: [
-          if (!isDarkMode)
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              spreadRadius: 0,
-              blurRadius: 10,
-            ),
-        ],
+        boxShadow: [if (!isDarkMode) BoxShadow(color: Colors.black.withOpacity(0.1), spreadRadius: 0, blurRadius: 10)],
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Total Price',
-                style: TextStyle(fontSize: 20, color: Colors.grey[600]),
-              ),
-              Text(
-                '\$${_totalPrice.toStringAsFixed(2)}',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('Total Price', style: TextStyle(fontSize: 20, color: Colors.grey[600])),
+              Text('\$${_totalPrice.toStringAsFixed(2)}', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 60),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-            onPressed: cartItems.isEmpty
-                ? null
-                : () => _showOrderTypeSheet(context),
-            child: const Text(
-              'Checkout',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+            onPressed: cartItems.isEmpty ? null : () => _showOrderTypeSheet(context),
+            child: const Text('Checkout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -152,27 +105,21 @@ class CartScreen extends StatelessWidget {
 class OrderTypeSelectionSheet extends StatelessWidget {
   final List<CartItem> cartItems;
   final Function(List<CartItem>, String, double) onPlaceOrder;
-  const OrderTypeSelectionSheet({
-    super.key,
-    required this.cartItems,
-    required this.onPlaceOrder,
-  });
+  const OrderTypeSelectionSheet({super.key, required this.cartItems, required this.onPlaceOrder});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     void navigateToSummary(String method) {
-      Navigator.pop(context);
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => OrderSummaryScreen(
-            cartItems: cartItems,
-            orderMethod: method,
-            onPlaceOrder: onPlaceOrder,
-          ),
+      Navigator.pop(context); // Tutup bottom sheet
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => OrderSummaryScreen(
+          cartItems: cartItems,
+          orderMethod: method,
+          onPlaceOrder: onPlaceOrder,
         ),
-      );
+      ));
     }
 
     return Container(
@@ -181,40 +128,11 @@ class OrderTypeSelectionSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Pilih Metode Pemesanan',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          Text('Pilih Metode Pemesanan', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          ListTile(
-            leading: Icon(
-              Icons.delivery_dining,
-              color: theme.colorScheme.primary,
-            ),
-            title: const Text(
-              'Delivery',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            onTap: () => navigateToSummary('Delivery'),
-          ),
-          ListTile(
-            leading: Icon(Icons.shopping_bag, color: theme.colorScheme.primary),
-            title: const Text(
-              'Take Away',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            onTap: () => navigateToSummary('Take Away'),
-          ),
-          ListTile(
-            leading: Icon(Icons.restaurant, color: theme.colorScheme.primary),
-            title: const Text(
-              'Dine In',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            onTap: () => navigateToSummary('Dine In'),
-          ),
+          ListTile(leading: Icon(Icons.delivery_dining, color: theme.colorScheme.primary), title: const Text('Delivery', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Delivery')),
+          ListTile(leading: Icon(Icons.shopping_bag, color: theme.colorScheme.primary), title: const Text('Take Away', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Take Away')),
+          ListTile(leading: Icon(Icons.restaurant, color: theme.colorScheme.primary), title: const Text('Dine In', style: TextStyle(fontWeight: FontWeight.bold)), onTap: () => navigateToSummary('Dine In')),
           const SizedBox(height: 10),
         ],
       ),

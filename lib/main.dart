@@ -1,5 +1,3 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,14 +5,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/providers/theme_provider.dart';
 import 'presentation/screens/auth/auth_wrapper.dart';
 import 'utils/app_theme.dart';
-import 'core/utils/firebase_options.dart'; // Pastikan file ini ada dari FlutterFire
+import 'core/utils/firebase_options.dart';
 
 void main() async {
-  // Memastikan semua binding Flutter siap sebelum menjalankan kode async.
+  // Memastikan semua widget binding sudah siap sebelum menjalankan kode async.
   WidgetsFlutterBinding.ensureInitialized();
 
   // Menginisialisasi Firebase sebelum aplikasi berjalan.
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(
     // Mendaftarkan ThemeProvider di level tertinggi agar bisa diakses di seluruh aplikasi.
@@ -30,7 +30,6 @@ class CoffeeApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Membaca state tema dari ThemeProvider.
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(

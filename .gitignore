@@ -36,6 +36,11 @@ lib/core/utils/firebase_options.dart
 .pub-cache/
 .pub/
 /build/
+/macos/
+/linux/
+/windows/
+/web/
+/ios/
 
 # Symbolication related
 app.*.symbols

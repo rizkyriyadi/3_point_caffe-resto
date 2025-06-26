@@ -18,6 +18,8 @@ dependencies:
   cloud_firestore: ^5.0.2
   google_sign_in: ^6.2.1
   cupertino_icons: ^1.0.8
+  dio: ^5.4.3
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
