@@ -27,29 +27,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.redAccent));
   }
 
+  // --- PERBAIKAN LOGIKA UTAMA ADA DI SINI ---
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+
     final user = await _auth.registerWithEmail(
       _emailController.text.trim(),
       _passwordController.text.trim(),
       _fullNameController.text.trim(),
     );
+
+    // Cek dulu apakah widget masih ada di tree sebelum lanjut
     if (!mounted) return;
+
+    // Selalu hentikan loading setelah proses selesai, baik gagal maupun sukses.
     setState(() => _isLoading = false);
 
     if (user == null) {
-      _showError('Gagal mendaftar. Pastikan email valid & password kuat.');
+      _showError('Gagal mendaftar. Pastikan email valid & password minimal 6 karakter.');
     } else {
-      Navigator.of(
-        context,
-      ).pop(); // Kembali ke halaman login setelah berhasil mendaftar
+      // Jika sukses, tutup halaman register untuk kembali ke state sebelumnya.
+      // AuthWrapper akan menangani sisanya.
+      Navigator.of(context).pop();
     }
   }
 
@@ -67,89 +71,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Create your account',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text('Create your account', style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 48),
                 TextFormField(
                   controller: _fullNameController,
-                  decoration: InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    filled: true,
-                    fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  validator: (val) =>
-                      val!.isEmpty ? 'Nama tidak boleh kosong' : null,
+                  decoration: InputDecoration(labelText: 'Full Name', prefixIcon: const Icon(Icons.person_outline), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                  validator: (val) => val!.isEmpty ? 'Nama tidak boleh kosong' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    filled: true,
-                    fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  validator: (val) => !(val?.contains('@') ?? false)
-                      ? 'Format email tidak valid'
-                      : null,
+                  decoration: InputDecoration(labelText: 'Email', prefixIcon: const Icon(Icons.email_outlined), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                  validator: (val) => !(val?.contains('@') ?? false) ? 'Format email tidak valid' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    filled: true,
-                    fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                  validator: (val) => (val?.length ?? 0) < 6
-                      ? 'Password minimal 6 karakter'
-                      : null,
+                  decoration: InputDecoration(labelText: 'Password', prefixIcon: const Icon(Icons.lock_outline), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+                  validator: (val) => (val?.length ?? 0) < 6 ? 'Password minimal 6 karakter' : null,
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _registerUser,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : const Text(
-                          'Register',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                  child: _isLoading ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3)) : const Text('Register', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
