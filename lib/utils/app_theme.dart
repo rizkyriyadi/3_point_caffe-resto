@@ -1,70 +1,108 @@
-// lib/utils/app_theme.dart
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 class AppTheme {
-  // Tema Terang (Hijau - Putih)
+  // Primary color for the brand
+  static const Color primaryColor = Color(0xFFC67C4E);
+
+  // Light Theme Colors
+  static const Color lightBackground = Color(0xFFFDFDFD);
+  static const Color lightTextPrimary = Color(0xFF313131);
+  static const Color lightTextSecondary = Color(0xFF9B9B9B);
+  static const Color lightCard = Colors.white;
+
+  // Dark Theme Colors
+  static const Color darkBackground = Color(0xFF121212);
+  static const Color darkTextPrimary = Color(0xFFFFFFFF);
+  static const Color darkTextSecondary = Color(0xFF8A8A8A);
+  static const Color darkCard = Color(0xFF1F1F1F);
+
+  static String formatRupiah(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'id_ID',
+      symbol: 'Rp ',
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
+
   static final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
-    primaryColor: const Color(0xFF2A9361),
-    scaffoldBackgroundColor: const Color(0xFFF7F7F7),
-    colorScheme: const ColorScheme.light(
-      primary: Color(0xFF2A9361),
-      secondary: Color(0xFF1E6A45),
-      background: Color(0xFFF7F7F7),
-      onBackground: Colors.black,
-    ),
-    appBarTheme: AppBarTheme(
-      backgroundColor: const Color(0xFFF7F7F7),
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: lightBackground,
+    fontFamily: 'Poppins', // Default font
+    textTheme: _buildTextTheme(base: ThemeData.light().textTheme, primaryColor: lightTextPrimary, secondaryColor: lightTextSecondary),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.black),
-      titleTextStyle: GoogleFonts.poppins(
-        color: Colors.black,
-        fontWeight: FontWeight.bold,
-      ),
+      iconTheme: IconThemeData(color: lightTextPrimary),
+      titleTextStyle: TextStyle(fontFamily: 'Urbanist', fontSize: 22, fontWeight: FontWeight.bold, color: lightTextPrimary),
     ),
-    textTheme: GoogleFonts.poppinsTextTheme().apply(
-      bodyColor: Colors.black,
-      displayColor: Colors.black,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2A9361),
-        foregroundColor: Colors.white,
-      ),
+    elevatedButtonTheme: _elevatedButtonTheme,
+    iconTheme: const IconThemeData(color: lightTextSecondary),
+    colorScheme: const ColorScheme.light(
+      primary: primaryColor,
+      secondary: primaryColor,
+      background: lightBackground,
+      surface: lightCard,
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onBackground: lightTextPrimary,
+      onSurface: lightTextPrimary,
     ),
   );
 
-  // Tema Gelap (Coklat - Hitam)
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-    primaryColor: Colors.brown[400],
-    scaffoldBackgroundColor: const Color(0xFF1a1a1a),
-    colorScheme: ColorScheme.dark(
-      primary: Colors.brown[300]!,
-      secondary: Colors.brown[400]!,
-      background: const Color(0xFF1a1a1a),
-      onBackground: Colors.white,
-    ),
-    appBarTheme: AppBarTheme(
-      backgroundColor: const Color(0xFF1a1a1a),
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: darkBackground,
+    fontFamily: 'Poppins', // Default font
+    textTheme: _buildTextTheme(base: ThemeData.dark().textTheme, primaryColor: darkTextPrimary, secondaryColor: darkTextSecondary),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      iconTheme: const IconThemeData(color: Colors.white),
-      titleTextStyle: GoogleFonts.poppins(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
+      iconTheme: IconThemeData(color: darkTextPrimary),
+      titleTextStyle: TextStyle(fontFamily: 'Urbanist', fontSize: 22, fontWeight: FontWeight.bold, color: darkTextPrimary),
     ),
-    textTheme: GoogleFonts.poppinsTextTheme().apply(
-      bodyColor: Colors.white,
-      displayColor: Colors.white,
+    elevatedButtonTheme: _elevatedButtonTheme,
+    iconTheme: const IconThemeData(color: darkTextSecondary),
+    colorScheme: const ColorScheme.dark(
+      primary: primaryColor,
+      secondary: primaryColor,
+      background: darkBackground,
+      surface: darkCard,
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onBackground: darkTextPrimary,
+      onSurface: darkTextPrimary,
     ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.brown[400],
-        foregroundColor: Colors.white,
-      ),
+  );
+
+  static TextTheme _buildTextTheme({required TextTheme base, required Color primaryColor, required Color secondaryColor}) {
+    return base.copyWith(
+      displayLarge: TextStyle(fontFamily: 'Urbanist', fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+      displayMedium: TextStyle(fontFamily: 'Urbanist', fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
+      displaySmall: TextStyle(fontFamily: 'Urbanist', fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineMedium: TextStyle(fontFamily: 'Urbanist', fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineSmall: TextStyle(fontFamily: 'Urbanist', fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
+      titleLarge: TextStyle(fontFamily: 'Urbanist', fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
+      bodyLarge: TextStyle(fontSize: 16, color: primaryColor, height: 1.5),
+      bodyMedium: TextStyle(fontSize: 14, color: secondaryColor, height: 1.5),
+      labelLarge: const TextStyle(fontFamily: 'Urbanist', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+    ).apply(
+      fontFamily: 'Poppins',
+    );
+  }
+
+  static final ElevatedButtonThemeData _elevatedButtonTheme = ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: primaryColor,
+      foregroundColor: Colors.white,
+      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16),
+      elevation: 5,
+      shadowColor: primaryColor.withOpacity(0.4),
     ),
   );
 }

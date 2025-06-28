@@ -1,3 +1,4 @@
+import 'package:coffe_shop_gpt/utils/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/cart_item.dart';
 import '../orders/order_summary_screen.dart';
@@ -41,9 +42,9 @@ class CartScreen extends StatelessWidget {
                   elevation: isDarkMode ? 1 : 2,
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
                   child: ListTile(
-                    leading: CircleAvatar(backgroundImage: NetworkImage(item.coffee.image)),
+                    leading: CircleAvatar(backgroundImage: AssetImage(item.coffee.image)),
                     title: Text(item.coffee.name),
-                    subtitle: Text('Size: ${item.size} | Price: \$${price.toStringAsFixed(2)}'),
+                    subtitle: Text('Size: ${item.size} | Price: ${AppTheme.formatRupiah(price)}'),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -87,7 +88,7 @@ class CartScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Total Price', style: TextStyle(fontSize: 20, color: Colors.grey[600])),
-              Text('\$${_totalPrice.toStringAsFixed(2)}', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+              Text(AppTheme.formatRupiah(_totalPrice), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 20),

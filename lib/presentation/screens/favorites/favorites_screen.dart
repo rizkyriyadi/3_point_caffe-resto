@@ -1,3 +1,4 @@
+import 'package:coffe_shop_gpt/utils/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/coffee.dart';
 import '../../widgets/empty_state_widget.dart';
@@ -30,10 +31,10 @@ class FavoritesScreen extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: NetworkImage(coffee.image),
+                      backgroundImage: AssetImage(coffee.image),
                     ),
                     title: Text(coffee.name),
-                    subtitle: Text('\$${coffee.prices['M']}'),
+                    subtitle: Text(AppTheme.formatRupiah(coffee.prices['M']!)),
                     trailing: IconButton(
                       icon: const Icon(Icons.favorite, color: Colors.redAccent),
                       onPressed: () => onToggleFavorite(coffee),
@@ -45,3 +46,4 @@ class FavoritesScreen extends StatelessWidget {
     );
   }
 }
+

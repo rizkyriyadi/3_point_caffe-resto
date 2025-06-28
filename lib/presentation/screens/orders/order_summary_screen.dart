@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'payment_webview_screen.dart';
 import '../../../data/models/cart_item.dart';
 import '../main_screen.dart';
+import 'package:coffe_shop_gpt/utils/app_theme.dart';
 
 class OrderSummaryScreen extends StatefulWidget {
   final List<CartItem> cartItems;
@@ -42,7 +43,7 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
     try {
       final dio = Dio();
       final response = await dio.post(
-        "https://2b50-103-136-57-231.ngrok-free.app/create-xendit-invoice", // GANTI DENGAN URL BACKEND ANDA
+        "https://bd08-103-136-57-231.ngrok-free.app/create-xendit-invoice", // GANTI DENGAN URL BACKEND ANDA
         data: {
           "order_id": 'KOPIKAP-${DateTime.now().millisecondsSinceEpoch}',
           "total": _total,
@@ -63,8 +64,9 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
       );
 
       if (paymentResult == true && mounted) {
-        // Jika pembayaran sukses dari WebView, tampilkan dialog dan kembali ke home
         _showDialogMessage(context, 'Menunggu Konfirmasi', 'Terima kasih! Kami akan segera mengupdate status pesanan Anda setelah pembayaran dikonfirmasi oleh Xendit.');
+      } else if (paymentResult == false && mounted) {
+        _showDialogMessage(context, 'Pembayaran Dibatalkan', 'Pembayaran dibatalkan atau tidak berhasil. Silakan coba lagi.', isSuccess: false);
       }
 
     } catch (e) {
@@ -106,7 +108,7 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('Total Pembayaran', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              Text('\$${_total.toStringAsFixed(2)}', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+              Text(AppTheme.formatRupiah(_total), style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
             ],
           ),
         ],
@@ -156,10 +158,10 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(item.coffee.image, width: 50, height: 50, fit: BoxFit.cover)),
+          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset(item.coffee.image, width: 50, height: 50, fit: BoxFit.cover)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)), Text('Size: ${item.size} • Qty: ${item.quantity}', style: const TextStyle(color: Colors.grey))])),
-          Text('\$${(item.coffee.prices[item.size]! * item.quantity).toStringAsFixed(2)}'),
+          Text(AppTheme.formatRupiah((item.coffee.prices[item.size]! * item.quantity))),
         ],
       ),
     );
@@ -168,7 +170,7 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
   Widget _buildCostRow(String title, double amount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.grey)), Text('\$${amount.toStringAsFixed(2)}')]),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(title, style: const TextStyle(color: Colors.grey)), Text(AppTheme.formatRupiah(amount))]),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/order.dart';
+import 'package:coffe_shop_gpt/utils/app_theme.dart';
 
 class OrderCard extends StatelessWidget {
   final Order order;
@@ -78,7 +79,7 @@ class OrderCard extends StatelessWidget {
               children: [
                 const Text('Total: ', style: TextStyle(fontSize: 16)),
                 Text(
-                  '\$${order.totalAmount.toStringAsFixed(2)}',
+                  AppTheme.formatRupiah(order.totalAmount),
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),

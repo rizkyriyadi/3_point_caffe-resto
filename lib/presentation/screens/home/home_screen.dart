@@ -12,7 +12,6 @@ import '../../widgets/empty_state_widget.dart';
 import '../detail/product_detail_screen.dart';
 
 class HomePageContent extends StatefulWidget {
-  // ... (parameter tetap sama)
   final Function(Coffee, String) onAddToCart;
   final Function(Coffee) onToggleFavorite;
 
@@ -27,8 +26,7 @@ class HomePageContent extends StatefulWidget {
 }
 
 class _HomePageContentState extends State<HomePageContent> {
-  // ... (state lainnya tetap sama)
-  final List<String> _categories = ['All', 'Cappuccino', 'Macchiato', 'Latte', 'Americano'];
+  final List<String> _categories = ['All', 'drinks', 'food'];
   String _selectedCategory = 'All';
   String _searchQuery = '';
   List<Coffee> _displayedCoffees = [];
@@ -42,7 +40,7 @@ class _HomePageContentState extends State<HomePageContent> {
 
   void _runFilter() {
     List<Coffee> results = coffeeList.where((coffee) => _searchQuery.isEmpty || coffee.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    if (_selectedCategory != 'All') results = results.where((coffee) => coffee.name == _selectedCategory).toList();
+    if (_selectedCategory != 'All') results = results.where((coffee) => coffee.category == _selectedCategory).toList();
     setState(() => _displayedCoffees = results);
   }
 
@@ -59,26 +57,42 @@ class _HomePageContentState extends State<HomePageContent> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (kode build utama tetap sama)
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20),
-        children: [
-          _buildHeader(context),
-          const SizedBox(height: 30),
-          _buildSearchBar(),
-          const SizedBox(height: 30),
-          _buildCategoryTabs(context),
-          const SizedBox(height: 20),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            child: _displayedCoffees.isEmpty
-                ? EmptyStateWidget(key: UniqueKey())
-                : GridView.builder(
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          children: [
+            _buildHeader(context),
+            const SizedBox(height: 25),
+            _buildSearchBar(context),
+            const SizedBox(height: 25),
+            _buildPromoBanner(context),
+            const SizedBox(height: 25),
+            _buildCategoryTabs(context),
+            const SizedBox(height: 20),
+            _buildCoffeeGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoffeeGrid() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      child: _displayedCoffees.isEmpty
+          ? EmptyStateWidget(key: UniqueKey())
+          : GridView.builder(
               key: ValueKey(_selectedCategory),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 0.72, crossAxisSpacing: 20, mainAxisSpacing: 20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75, // Adjusted for new card layout
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: _displayedCoffees.length,
               itemBuilder: (context, index) {
                 final coffee = _displayedCoffees[index];
@@ -100,62 +114,94 @@ class _HomePageContentState extends State<HomePageContent> {
                 );
               },
             ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildSearchBar() {
-    final isDarkMode = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
-    return TextField(onChanged: (value) { setState(() { _searchQuery = value; _runFilter(); }); }, decoration: InputDecoration(hintText: 'Search coffee', hintStyle: TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey), prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.white54 : Colors.grey), filled: true, fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200], border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)));
+  Widget _buildSearchBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: TextField(
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+            _runFilter();
+          });
+        },
+        decoration: InputDecoration(
+          hintText: 'Find your coffee...',
+          hintStyle: TextStyle(fontFamily: 'Poppins', color: isDarkMode ? Colors.white54 : Colors.grey[600]),
+          prefixIcon: Icon(Icons.search_rounded, color: isDarkMode ? Colors.white70 : Colors.grey[700], size: 28),
+          filled: true,
+          fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[200],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryTabs(BuildContext context) {
     return SizedBox(
-      height: 40,
+      height: 45,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
+        padding: const EdgeInsets.only(left: 20),
         itemBuilder: (context, index) {
           final category = _categories[index];
-          return CategoryTabWidget(category: category, isSelected: _selectedCategory == category, onTap: () { setState(() => _selectedCategory = category); _runFilter(); });
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: CategoryTabWidget(
+              category: category,
+              isSelected: _selectedCategory == category,
+              onTap: () {
+                setState(() => _selectedCategory = category);
+                _runFilter();
+              },
+            ),
+          );
         },
       ),
     );
   }
 
-  // --- PERBAIKAN UNTUK BUG NAMA "GUEST" ---
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final user = FirebaseAuth.instance.currentUser;
 
-    // Jika tidak ada user (seharusnya tidak mungkin terjadi di sini), tampilkan Guest
     if (user == null) {
-      return const Text("Hello, Guest");
-    }
-
-    // Ambil nama dari Google, atau jika tidak ada, ambil dari Firestore
-    if (user.displayName != null && user.displayName!.isNotEmpty) {
-      // Jika login pakai Google, nama biasanya sudah ada
-      String greetingName = user.displayName!.split(' ').first;
-      return _buildHeaderUI(theme, greetingName, user.photoURL);
-    } else {
-      // Jika login pakai email, ambil nama dari Firestore
-      return FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
-            Map<String, dynamic> data = snapshot.data!.data() as Map<String, dynamic>;
-            String fullName = data['fullName'] ?? 'User';
-            String greetingName = fullName.split(' ').first;
-            return _buildHeaderUI(theme, greetingName, user.photoURL);
-          }
-          // Selama loading, tampilkan nama "User..."
-          return _buildHeaderUI(theme, "User...", null);
-        },
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Text("Hello, Guest"),
       );
     }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: FutureBuilder<DocumentSnapshot>(
+        future: user.isAnonymous ? null : FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+        builder: (context, snapshot) {
+          String displayName = 'Guest';
+          String? photoUrl = 'https://i.imgur.com/Z3N57Dk.png';
+
+          if (user.displayName != null && user.displayName!.isNotEmpty) {
+            displayName = user.displayName!.split(' ').first;
+            photoUrl = user.photoURL ?? photoUrl;
+          } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+            Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
+            String fullName = data?['fullName'] ?? 'User';
+            displayName = fullName.split(' ').first;
+          }
+
+          return _buildHeaderUI(theme, displayName, photoUrl);
+        },
+      ),
+    );
   }
 
   Widget _buildHeaderUI(ThemeData theme, String name, String? photoUrl) {
@@ -165,15 +211,57 @@ class _HomePageContentState extends State<HomePageContent> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Hello, $name', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-            Text('Mau ngopi apa hari ini?', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey)),
+            Text('Good morning,', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey, fontFamily: 'Poppins')),
+            const SizedBox(height: 4),
+            Text(name, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, fontFamily: 'Urbanist')),
           ],
         ),
         CircleAvatar(
-          radius: 25,
-          backgroundImage: NetworkImage(photoUrl ?? 'https://i.imgur.com/Z3N57Dk.png'),
+          radius: 28,
+          backgroundImage: NetworkImage(photoUrl!),
         ),
       ],
+    );
+  }
+
+  Widget _buildPromoBanner(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.brightness == Brightness.dark ? const Color(0xFF1F1F1F) : const Color(0xFF313131),
+        borderRadius: BorderRadius.circular(25),
+        image: const DecorationImage(
+          image: AssetImage('assets/images/promo_banner.png'), // Pastikan gambar ini ada
+          fit: BoxFit.cover,
+          opacity: 0.8,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Promo Today',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w300, fontFamily: 'Poppins'),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Get 20% off for your first order!',
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
+          ),
+          const SizedBox(height: 15),
+          ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+            ),
+            child: const Text('Claim Now', style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins')),
+          )
+        ],
+      ),
     );
   }
 }

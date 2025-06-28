@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'auth/auth_wrapper.dart';
+import 'package:coffe_shop_gpt/presentation/screens/onboarding/onboarding_screen.dart'; // Import the onboarding screen
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
@@ -14,36 +13,37 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _navigateToNext();
-  }
-
-  _navigateToNext() async {
-    await Future.delayed(const Duration(milliseconds: 2500), () {});
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const AuthWrapper(),
-          transitionsBuilder: (_, a, __, c) =>
-              FadeTransition(opacity: a, child: c),
-        ),
+    Timer(const Duration(seconds: 2), () {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
       );
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Center(
-        child: Text(
-          '3Point Caffe & Resto',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontSize: 40,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/3pointcafe_logo.png',
+              width: 150, // Adjust size as needed
+              height: 150, // Adjust size as needed
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Ngopi asik, Makan Enak, Satu-satunya Cafe-Resto dengan Fasilitas terlengkap di JakSel',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 30),
+            const CircularProgressIndicator(), // Loading indicator
+          ],
         ),
       ),
     );

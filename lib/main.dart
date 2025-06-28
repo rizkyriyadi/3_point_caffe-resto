@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import 'core/providers/theme_provider.dart';
-import 'presentation/screens/auth/auth_wrapper.dart';
+import 'package:coffe_shop_gpt/presentation/screens/auth/auth_wrapper.dart';
+import 'package:coffe_shop_gpt/presentation/screens/splash_screen.dart';
 import 'utils/app_theme.dart';
 import 'core/utils/firebase_options.dart';
 
 void main() async {
-  // Memastikan semua widget binding sudah siap sebelum menjalankan kode async.
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Menginisialisasi Firebase sebelum aplikasi berjalan.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
   runApp(
-    // Mendaftarkan ThemeProvider di level tertinggi agar bisa diakses di seluruh aplikasi.
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
       child: const CoffeeApp(),
@@ -35,17 +32,10 @@ class CoffeeApp extends StatelessWidget {
     return MaterialApp(
       title: '3Point Caffe & Resto',
       debugShowCheckedModeBanner: false,
-
-      // Menggunakan definisi tema dari file terpisah.
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-
-      // Mengatur mode tema (light/dark) berdasarkan state di ThemeProvider.
       themeMode: themeProvider.themeMode,
-
-      // Titik masuk UI aplikasi sekarang adalah AuthWrapper,
-      // yang akan menentukan apakah user harus ke halaman Login atau Home.
-      home: const AuthWrapper(),
+      home: const SplashScreen(),
     );
   }
 }

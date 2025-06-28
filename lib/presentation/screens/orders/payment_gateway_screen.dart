@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../utils/app_theme.dart';
+
 class PaymentGatewayScreen extends StatefulWidget {
   final double totalAmount;
   final VoidCallback onPaymentSuccess;
@@ -38,7 +40,7 @@ class _PaymentGatewayScreenState extends State<PaymentGatewayScreen> {
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8.0),
             child: Text(
-              'Total: \$${widget.totalAmount.toStringAsFixed(2)}',
+              'Total: ${AppTheme.formatRupiah(widget.totalAmount)}',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.bold,

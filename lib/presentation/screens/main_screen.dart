@@ -1,5 +1,3 @@
-// lib/presentation/screens/main_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,19 +21,18 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  // --- State Management Sederhana ---
-  // Data ini akan di-pass ke halaman-halaman yang membutuhkannya.
-  // Untuk aplikasi yang lebih besar, ini bisa diganti dengan state management yang lebih canggih (BLoC, Riverpod, dll).
   final List<Coffee> _favoriteCoffees = [];
   final List<CartItem> _cartItems = [];
   final List<Order> _allOrders = [];
 
-  // --- Functions to Modify State ---
   void _toggleFavorite(Coffee coffee) {
     setState(() {
-      _favoriteCoffees.contains(coffee)
-          ? _favoriteCoffees.remove(coffee)
-          : _favoriteCoffees.add(coffee);
+      final isFavorited = _favoriteCoffees.any((item) => item.name == coffee.name);
+      if (isFavorited) {
+        _favoriteCoffees.removeWhere((item) => item.name == coffee.name);
+      } else {
+        _favoriteCoffees.add(coffee);
+      }
     });
   }
 
@@ -43,21 +40,24 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       final newOrder = Order(
         id: 'ID-${DateTime.now().millisecondsSinceEpoch}',
-        items: List<CartItem>.from(items), // Buat salinan list
+        items: List<CartItem>.from(items),
         orderMethod: method,
         totalAmount: total,
         orderDate: DateTime.now(),
         status: OrderStatus.ongoing,
       );
-      _allOrders.insert(0, newOrder); // Tambah ke awal list
-      _cartItems.clear(); // Kosongkan keranjang setelah order
+      _allOrders.insert(0, newOrder);
+      _cartItems.clear();
     });
+    // Navigate to orders screen after placing order
+    _onItemTapped(3);
   }
 
   void _addToCart(Coffee coffee, String size) {
     setState(() {
       final newItem = CartItem(coffee: coffee, size: size);
-      final itemIndex = _cartItems.indexOf(newItem);
+      final itemIndex = _cartItems.indexWhere((item) => item.coffee.name == coffee.name && item.size == size);
+
       if (itemIndex != -1) {
         _cartItems[itemIndex].quantity++;
       } else {
@@ -67,16 +67,25 @@ class _MainScreenState extends State<MainScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${coffee.name} ($size) added to cart!'),
-        duration: const Duration(seconds: 1),
+        duration: const Duration(seconds: 2),
         backgroundColor: Theme.of(context).primaryColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        margin: const EdgeInsets.all(15),
       ),
     );
   }
 
   void _incrementCartItem(CartItem item) => setState(() => item.quantity++);
-  void _decrementCartItem(CartItem item) => setState(
-    () => item.quantity > 1 ? item.quantity-- : _cartItems.remove(item),
-  );
+  void _decrementCartItem(CartItem item) {
+    setState(() {
+      if (item.quantity > 1) {
+        item.quantity--;
+      } else {
+        _cartItems.remove(item);
+      }
+    });
+  }
 
   void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
@@ -85,8 +94,6 @@ class _MainScreenState extends State<MainScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
 
-    // List halaman yang akan ditampilkan berdasarkan tab yang dipilih.
-    // Kita passing state dan fungsi yang relevan ke setiap halaman.
     final List<Widget> pages = [
       HomePageContent(
         onToggleFavorite: _toggleFavorite,
@@ -108,37 +115,76 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: pages),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: 'Cart',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      bottomNavigationBar: _buildBottomNavBar(isDarkMode),
+    );
+  }
+
+  Widget _buildBottomNavBar(bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDarkMode ? const Color(0xFF1A1A1A) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -10),
+          )
         ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-        selectedItemColor: isDarkMode
-            ? Colors.brown[300]
-            : Theme.of(context).primaryColor,
-        unselectedItemColor: isDarkMode ? Colors.white54 : Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        showUnselectedLabels: true,
-        selectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 10,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavBarItem(0, Icons.home_rounded, 'Home', isDarkMode),
+          _buildNavBarItem(1, Icons.favorite_rounded, 'Favorites', isDarkMode),
+          _buildNavBarItem(2, Icons.shopping_cart_rounded, 'Cart', isDarkMode),
+          _buildNavBarItem(3, Icons.receipt_rounded, 'Orders', isDarkMode),
+          _buildNavBarItem(4, Icons.person_rounded, 'Profile', isDarkMode),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavBarItem(int index, IconData icon, String label, bool isDarkMode) {
+    final isSelected = _selectedIndex == index;
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: EdgeInsets.symmetric(horizontal: isSelected ? 18 : 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.primaryColor.withOpacity(0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(15),
         ),
-        unselectedLabelStyle: const TextStyle(fontSize: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? theme.primaryColor : (isDarkMode ? Colors.white70 : Colors.grey[600]),
+              size: isSelected ? 28 : 26,
+            ),
+            if (isSelected)
+              Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: theme.primaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
