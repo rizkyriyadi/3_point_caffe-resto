@@ -78,14 +78,14 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
                 Text(
-                  'Welcome Back!',
+                  'Selamat Datang di 3Point',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Login to continue your coffee journey',
+                  'Login untuk melanjutkan petualangan ngopi dan kulineran Jaksel kamu',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: Colors.grey,
                   ),
@@ -188,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text("Don't have an account? "),
+                    const Text("Belum punya akun? "),
                     TextButton(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -196,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       child: Text(
-                        'Register',
+                        'Daftar Sekarang',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: theme.primaryColor,

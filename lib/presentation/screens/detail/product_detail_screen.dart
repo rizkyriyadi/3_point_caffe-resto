@@ -245,7 +245,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: const EdgeInsets.fromLTRB(25, 15, 25, 25),
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(20), 
+          bottom: Radius.circular(20)
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.07),

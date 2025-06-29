@@ -21,11 +21,15 @@ dependencies:
   dio: ^5.4.3
   webview_flutter: ^4.7.0
   cached_network_image: ^3.3.1
+  slide_to_act: ^2.0.2
+ # carousel_slider:
+ # card_swiper: ^3.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: "^0.13.1"
 
 flutter:
   uses-material-design: true
@@ -42,3 +46,12 @@ flutter:
   #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
+
+flutter_launcher_icons:
+    android: "launcher_icon"    # Nama ikon untuk Android
+    ios: true                   # Aktifkan untuk iOS
+    image_path: "3assets/images/3pointcafe_logo.png" # GANTI DENGAN PATH LOGO ANDA
+
+    # (Sangat Direkomendasikan untuk Android 8.0+) Konfigurasi Adaptive Icon
+    adaptive_icon_background: "#FFFFFF" # Warna latar belakang ikon (misal: putih)
+    adaptive_icon_foreground: "assets/images/3pointcafe_logo.png" # Logo tanpa background (hanya logo utamanya)
