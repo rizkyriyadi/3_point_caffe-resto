@@ -1,6 +1,7 @@
-import 'package:coffe_shop_gpt/utils/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import package baru
 import '../../data/models/coffee.dart';
+import '../../utils/app_theme.dart';
 
 class CoffeeCard extends StatelessWidget {
   final Coffee coffee;
@@ -27,6 +28,7 @@ class CoffeeCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
+          // ... (dekorasi container Anda sudah bagus, tidak perlu diubah)
           gradient: isDarkMode
               ? const LinearGradient(
             colors: [Color(0xFF2E2E2E), Color(0xFF1A1A1A)],
@@ -50,7 +52,7 @@ class CoffeeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildImage(theme),
+            _buildImage(context, theme), // Kirim context untuk akses theme di placeholder
             _buildInfo(context, theme),
           ],
         ),
@@ -58,20 +60,22 @@ class CoffeeCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImage(ThemeData theme) {
+  Widget _buildImage(BuildContext context, ThemeData theme) {
     return Expanded(
       flex: 5,
       child: Stack(
         children: [
           Hero(
             tag: coffee.image + coffee.name,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                image: DecorationImage(
-                  image: AssetImage(coffee.image),
-                  fit: BoxFit.cover,
-                ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+              // PERBAIKAN UTAMA: Gunakan CachedNetworkImage
+              child: CachedNetworkImage(
+                imageUrl: coffee.image,
+                placeholder: (context, url) => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
           ),
@@ -85,17 +89,12 @@ class CoffeeCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 16),
                   const SizedBox(width: 5),
                   Text(
                     coffee.rating.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ],
               ),
@@ -117,18 +116,13 @@ class CoffeeCard extends StatelessWidget {
           children: [
             Text(
               coffee.name,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Urbanist',
-              ),
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             Text(
               'with ${coffee.subtitle}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-              ),
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -136,9 +130,9 @@ class CoffeeCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // FIX: Used single quotes for the map key 'M' inside the double-quoted string.
                 Text(
-                  AppTheme.formatRupiah(coffee.prices['M']!),
+                  // PENYEMPURNAAN: Lebih aman dari error jika harga 'M' tidak ada
+                  AppTheme.formatRupiah(coffee.prices['M'] ?? 0.0),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary,
@@ -171,11 +165,7 @@ class CoffeeCard extends StatelessWidget {
             )
           ],
         ),
-        child: const Icon(
-          Icons.add_shopping_cart_rounded,
-          color: Colors.white,
-          size: 22,
-        ),
+        child: const Icon(Icons.add_shopping_cart_rounded, color: Colors.white, size: 22),
       ),
     );
   }

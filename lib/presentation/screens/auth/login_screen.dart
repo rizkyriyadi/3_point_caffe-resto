@@ -172,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ), // Pastikan Anda punya logo ini di assets
                   label: const Text('Login with Google'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: theme.colorScheme.onBackground,
+                    foregroundColor: theme.colorScheme.onSurface,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

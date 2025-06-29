@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 import 'core/providers/theme_provider.dart';
-import 'package:coffe_shop_gpt/presentation/screens/auth/auth_wrapper.dart';
 import 'package:coffe_shop_gpt/presentation/screens/splash_screen.dart';
 import 'utils/app_theme.dart';
 import 'core/utils/firebase_options.dart';

@@ -5,8 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/services/auth_service.dart';
-import '../../../data/models/order.dart';
-import '../orders/my_orders_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

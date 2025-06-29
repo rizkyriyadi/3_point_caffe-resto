@@ -1,119 +1,173 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-import '../../../core/providers/theme_provider.dart';
-import '../../../data/dummy_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/product_service.dart';
 import '../../../data/models/coffee.dart';
-import '../../widgets/category_tab_widget.dart';
 import '../../widgets/coffee_card.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../detail/product_detail_screen.dart';
 
 class HomePageContent extends StatefulWidget {
-  final Function(Coffee, String) onAddToCart;
+  final List<Coffee> favoriteCoffees;
   final Function(Coffee) onToggleFavorite;
+  final Function(Coffee, String) onAddToCart;
 
   const HomePageContent({
     super.key,
-    required this.onAddToCart,
+    required this.favoriteCoffees,
     required this.onToggleFavorite,
+    required this.onAddToCart,
   });
 
   @override
   State<HomePageContent> createState() => _HomePageContentState();
 }
 
-class _HomePageContentState extends State<HomePageContent> {
-  final List<String> _categories = ['All', 'drinks', 'food'];
-  String _selectedCategory = 'All';
-  String _searchQuery = '';
+class _HomePageContentState extends State<HomePageContent> with TickerProviderStateMixin {
+  final ProductService _productService = ProductService();
+  late Future<List<Coffee>> _productsFuture;
+  late TabController _tabController;
+
+  List<Coffee> _allProducts = [];
   List<Coffee> _displayedCoffees = [];
-  final List<Coffee> _internalFavorites = [];
+
+  final List<String> _categories = ['All', 'drinks', 'food'];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _runFilter();
+    _productsFuture = _productService.getProducts();
+    _tabController = TabController(length: _categories.length, vsync: this);
+
+    // Tambahkan listener untuk memicu filter saat ada perubahan
+    _searchController.addListener(_runFilter);
+    _tabController.addListener(_runFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_runFilter);
+    _tabController.removeListener(_runFilter);
+    _searchController.dispose();
+    _tabController.dispose();
+    super.dispose();
   }
 
   void _runFilter() {
-    List<Coffee> results = coffeeList.where((coffee) => _searchQuery.isEmpty || coffee.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    if (_selectedCategory != 'All') results = results.where((coffee) => coffee.category == _selectedCategory).toList();
-    setState(() => _displayedCoffees = results);
-  }
+    // Ambil kategori dan query pencarian terbaru
+    final selectedCategory = _categories[_tabController.index];
+    final searchQuery = _searchController.text.toLowerCase();
 
-  void _localToggleFavorite(Coffee coffee) {
-    setState(() {
-      if (_internalFavorites.contains(coffee)) {
-        _internalFavorites.remove(coffee);
-      } else {
-        _internalFavorites.add(coffee);
-      }
-    });
-    widget.onToggleFavorite(coffee);
+    List<Coffee> results = List.from(_allProducts);
+
+    // 1. Filter berdasarkan kategori
+    if (selectedCategory != 'All') {
+      results.retainWhere((coffee) => coffee.category.toLowerCase() == selectedCategory.toLowerCase());
+    }
+
+    // 2. Filter berdasarkan pencarian
+    if (searchQuery.isNotEmpty) {
+      results.retainWhere((coffee) => coffee.name.toLowerCase().contains(searchQuery));
+    }
+
+    // Perbarui UI dengan data yang sudah difilter
+    if (mounted) {
+      setState(() {
+        _displayedCoffees = results;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          children: [
-            _buildHeader(context),
-            const SizedBox(height: 25),
-            _buildSearchBar(context),
-            const SizedBox(height: 25),
-            _buildPromoBanner(context),
-            const SizedBox(height: 25),
-            _buildCategoryTabs(context),
-            const SizedBox(height: 20),
-            _buildCoffeeGrid(),
-          ],
-        ),
+    return SafeArea(
+      child: FutureBuilder<List<Coffee>>(
+        future: _productsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text("Gagal memuat produk."));
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const EmptyStateWidget();
+          }
+
+          if (_allProducts.isEmpty) {
+            _allProducts = snapshot.data!;
+            _displayedCoffees = List.from(_allProducts);
+          }
+
+          return Scaffold(
+            appBar: _buildAppBar(context),
+            body: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverToBoxAdapter(child: _buildHeader(context)),
+                  SliverToBoxAdapter(child: _buildSearchBar(context)),
+                  SliverToBoxAdapter(child: _buildPromoBanner(context)),
+                  SliverPersistentHeader(
+                    delegate: _SliverTabBarDelegate(_buildCategoryTabs(context)),
+                    pinned: true,
+                    floating: true,
+                  ),
+                ];
+              },
+              body: _buildCoffeeGrid(),
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      leading: IconButton(icon: const Icon(Icons.menu_rounded), onPressed: () {}),
+      title: const Text('BrewBlend'),
+      actions: [
+        IconButton(icon: const Icon(Icons.shopping_bag_outlined), onPressed: () {}),
+        const SizedBox(width: 10),
+      ],
     );
   }
 
   Widget _buildCoffeeGrid() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 300),
       child: _displayedCoffees.isEmpty
           ? EmptyStateWidget(key: UniqueKey())
           : GridView.builder(
-              key: ValueKey(_selectedCategory),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75, // Adjusted for new card layout
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _displayedCoffees.length,
-              itemBuilder: (context, index) {
-                final coffee = _displayedCoffees[index];
-                return CoffeeCard(
+        key: ValueKey(_categories[_tabController.index] + _searchController.text),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2, childAspectRatio: 0.68, crossAxisSpacing: 15, mainAxisSpacing: 15),
+        padding: const EdgeInsets.all(20),
+        itemCount: _displayedCoffees.length,
+        itemBuilder: (context, index) {
+          final coffee = _displayedCoffees[index];
+          final isFavorite = widget.favoriteCoffees.contains(coffee);
+          return CoffeeCard(
+            coffee: coffee,
+            isFavorite: isFavorite,
+            onToggleFavorite: () => widget.onToggleFavorite(coffee),
+            onAddToCart: widget.onAddToCart,
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => ProductDetailScreen(
                   coffee: coffee,
-                  isFavorite: _internalFavorites.contains(coffee),
-                  onToggleFavorite: () => _localToggleFavorite(coffee),
                   onAddToCart: widget.onAddToCart,
-                  onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => ProductDetailScreen(
-                        coffee: coffee,
-                        onAddToCart: widget.onAddToCart,
-                        isFavorite: _internalFavorites.contains(coffee),
-                        onToggleFavorite: () => _localToggleFavorite(coffee),
-                      ),
-                    ));
-                  },
-                );
-              },
-            ),
+                  isFavorite: isFavorite,
+                  onToggleFavorite: () => widget.onToggleFavorite(coffee),
+                ),
+              ));
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -123,12 +177,7 @@ class _HomePageContentState extends State<HomePageContent> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TextField(
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-            _runFilter();
-          });
-        },
+        controller: _searchController, // Menggunakan controller
         decoration: InputDecoration(
           hintText: 'Find your coffee...',
           hintStyle: TextStyle(fontFamily: 'Poppins', color: isDarkMode ? Colors.white54 : Colors.grey[600]),
@@ -145,28 +194,14 @@ class _HomePageContentState extends State<HomePageContent> {
     );
   }
 
-  Widget _buildCategoryTabs(BuildContext context) {
-    return SizedBox(
-      height: 45,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: _categories.length,
-        padding: const EdgeInsets.only(left: 20),
-        itemBuilder: (context, index) {
-          final category = _categories[index];
-          return Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: CategoryTabWidget(
-              category: category,
-              isSelected: _selectedCategory == category,
-              onTap: () {
-                setState(() => _selectedCategory = category);
-                _runFilter();
-              },
-            ),
-          );
-        },
-      ),
+  TabBar _buildCategoryTabs(BuildContext context) {
+    return TabBar(
+      controller: _tabController,
+      tabs: _categories.map((String category) => Tab(text: category)).toList(),
+      isScrollable: true,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
     );
   }
 
@@ -175,24 +210,23 @@ class _HomePageContentState extends State<HomePageContent> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Text("Hello, Guest"),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: _buildHeaderUI(theme, 'Guest', null),
       );
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: FutureBuilder<DocumentSnapshot>(
-        future: user.isAnonymous ? null : FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
+        future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
         builder: (context, snapshot) {
           String displayName = 'Guest';
-          String? photoUrl = 'https://i.imgur.com/Z3N57Dk.png';
+          String? photoUrl = user.photoURL;
 
           if (user.displayName != null && user.displayName!.isNotEmpty) {
             displayName = user.displayName!.split(' ').first;
-            photoUrl = user.photoURL ?? photoUrl;
-          } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData) {
+          } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data!.exists) {
             Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
             String fullName = data?['fullName'] ?? 'User';
             displayName = fullName.split(' ').first;
@@ -218,7 +252,7 @@ class _HomePageContentState extends State<HomePageContent> {
         ),
         CircleAvatar(
           radius: 28,
-          backgroundImage: NetworkImage(photoUrl!),
+          backgroundImage: NetworkImage(photoUrl ?? 'https://i.imgur.com/Z3N57Dk.png'),
         ),
       ],
     );
@@ -230,10 +264,10 @@ class _HomePageContentState extends State<HomePageContent> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.brightness == Brightness.dark ? const Color(0xFF1F1F1F) : const Color(0xFF313131),
+        color: const Color(0xFF313131),
         borderRadius: BorderRadius.circular(25),
         image: const DecorationImage(
-          image: AssetImage('assets/images/promo_banner.png'), // Pastikan gambar ini ada
+          image: AssetImage('assets/images/promo_banner.png'),
           fit: BoxFit.cover,
           opacity: 0.8,
         ),
@@ -241,15 +275,9 @@ class _HomePageContentState extends State<HomePageContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Promo Today',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w300, fontFamily: 'Poppins'),
-          ),
+          const Text('Promo Today', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w300, fontFamily: 'Poppins')),
           const SizedBox(height: 8),
-          const Text(
-            'Get 20% off for your first order!',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
-          ),
+          const Text('Get 20% off for your first order!', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Urbanist')),
           const SizedBox(height: 15),
           ElevatedButton(
             onPressed: () {},
@@ -264,4 +292,19 @@ class _HomePageContentState extends State<HomePageContent> {
       ),
     );
   }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+  _SliverTabBarDelegate(this._tabBar);
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(color: Theme.of(context).scaffoldBackgroundColor, child: _tabBar);
+  }
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
 }

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coffe_shop_gpt/utils/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/coffee.dart';
@@ -30,13 +31,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _isFavorite = widget.isFavorite;
-    _currentPrice = widget.coffee.prices[_selectedSize]!;
+    _currentPrice = widget.coffee.prices[_selectedSize] ?? widget.coffee.prices['M'] ?? 0.0;
   }
 
   void _updatePrice(String size) {
     setState(() {
       _selectedSize = size;
-      _currentPrice = widget.coffee.prices[_selectedSize]!;
+      _currentPrice = widget.coffee.prices[size] ?? 0.0;
     });
   }
 
@@ -53,8 +54,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+
   Widget _buildAppBar(BuildContext context) {
-    final theme = Theme.of(context);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -93,7 +94,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildImage(context),
+          _buildImage(context), // Ini bagian yang kita perbaiki
           Padding(
             padding: const EdgeInsets.fromLTRB(25, 20, 25, 20),
             child: Column(
@@ -116,17 +117,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  // --- PERBAIKAN UTAMA ADA DI SINI ---
+  // Ganti dengan method _buildImage yang sudah diperbaiki
   Widget _buildImage(BuildContext context) {
     return Hero(
       tag: widget.coffee.image + widget.coffee.name,
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.5,
+        height: MediaQuery.of(context).size.height * 0.55, // Sedikit lebih tinggi untuk proporsi yang lebih baik
         decoration: BoxDecoration(
-          image: DecorationImage(image: AssetImage(widget.coffee.image), fit: BoxFit.cover),
+          // PERBAIKAN UTAMA: Gunakan DecorationImage
+          image: DecorationImage(
+            // Gunakan provider dari CachedNetworkImage untuk caching
+            image: CachedNetworkImageProvider(widget.coffee.image),
+            // Atur fit dan alignment di sini
+            fit: BoxFit.cover, // BoxFit.cover akan mengisi seluruh area, menghilangkan ruang kosong
+            alignment: Alignment.center,
+          ),
+        ),
+        // Tampilkan loading/error di atas gambar jika perlu
+        child: CachedNetworkImage(
+          imageUrl: widget.coffee.image,
+          imageBuilder: (context, imageProvider) => Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+            ),
+          ),
+          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+          errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
         ),
       ),
     );
   }
+
+
 
   Widget _buildTitle(ThemeData theme) {
     return Row(
@@ -137,15 +160,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.coffee.name,
-                style: theme.textTheme.displaySmall,
-              ),
+              Text(widget.coffee.name, style: theme.textTheme.displaySmall),
               const SizedBox(height: 5),
-              Text(
-                'with ${widget.coffee.subtitle}',
-                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 16),
-              ),
+              // PENAMBAHAN: Cek jika subtitle tidak null dan tidak kosong
+              if (widget.coffee.subtitle != null && widget.coffee.subtitle!.isNotEmpty)
+                Text(
+                  'with ${widget.coffee.subtitle}',
+                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 16),
+                ),
             ],
           ),
         ),
@@ -162,6 +184,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ],
     );
   }
+
 
   Widget _buildSectionTitle(String title, ThemeData theme) {
     return Text(

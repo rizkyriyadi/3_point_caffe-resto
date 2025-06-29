@@ -21,12 +21,16 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  // State utama aplikasi
   final List<Coffee> _favoriteCoffees = [];
   final List<CartItem> _cartItems = [];
   final List<Order> _allOrders = [];
 
+  // --- Fungsi untuk memodifikasi state ---
+
   void _toggleFavorite(Coffee coffee) {
     setState(() {
+      // Pengecekan yang lebih aman untuk menghindari duplikat objek
       final isFavorited = _favoriteCoffees.any((item) => item.name == coffee.name);
       if (isFavorited) {
         _favoriteCoffees.removeWhere((item) => item.name == coffee.name);
@@ -49,13 +53,14 @@ class _MainScreenState extends State<MainScreen> {
       _allOrders.insert(0, newOrder);
       _cartItems.clear();
     });
-    // Navigate to orders screen after placing order
+    // Navigasi ke halaman pesanan setelah berhasil membuat pesanan
     _onItemTapped(3);
   }
 
   void _addToCart(Coffee coffee, String size) {
     setState(() {
       final newItem = CartItem(coffee: coffee, size: size);
+      // Pengecekan yang lebih aman
       final itemIndex = _cartItems.indexWhere((item) => item.coffee.name == coffee.name && item.size == size);
 
       if (itemIndex != -1) {
@@ -94,8 +99,10 @@ class _MainScreenState extends State<MainScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDarkMode = themeProvider.themeMode == ThemeMode.dark;
 
+    // --- PERBAIKAN UTAMA ADA DI SINI ---
     final List<Widget> pages = [
       HomePageContent(
+        favoriteCoffees: _favoriteCoffees, // <-- Tambahkan parameter yang hilang ini
         onToggleFavorite: _toggleFavorite,
         onAddToCart: _addToCart,
       ),
@@ -110,7 +117,7 @@ class _MainScreenState extends State<MainScreen> {
         onPlaceOrder: _placeOrder,
       ),
       MyOrdersScreen(allOrders: _allOrders),
-      ProfileScreen(),
+      const ProfileScreen(), // Meneruskan daftar pesanan ke Profile
     ];
 
     return Scaffold(
@@ -118,6 +125,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: _buildBottomNavBar(isDarkMode),
     );
   }
+
 
   Widget _buildBottomNavBar(bool isDarkMode) {
     return Container(
