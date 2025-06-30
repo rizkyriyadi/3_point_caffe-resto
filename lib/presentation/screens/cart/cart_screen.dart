@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:coffe_shop_gpt/utils/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/cart_item.dart';
@@ -32,26 +33,40 @@ class CartScreen extends StatelessWidget {
         children: [
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(16.0),
               itemCount: cartItems.length,
               itemBuilder: (context, index) {
                 final item = cartItems[index];
                 final price = item.coffee.prices[item.size]! * item.quantity;
                 return Card(
-                  color: isDarkMode ? Colors.grey[850] : Colors.white,
-                  elevation: isDarkMode ? 1 : 2,
+                  color: isDarkMode ? const Color(0xFF1F1F1F) : Colors.white,
+                  elevation: 1,
                   margin: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: ListTile(
-                    leading: CircleAvatar(backgroundImage: AssetImage(item.coffee.image)),
-                    title: Text(item.coffee.name),
-                    subtitle: Text('Size: ${item.size} | Price: ${AppTheme.formatRupiah(price)}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(icon: const Icon(Icons.remove), onPressed: () => onDecrement(item)),
-                        Text('${item.quantity}', style: const TextStyle(fontSize: 16)),
-                        IconButton(icon: const Icon(Icons.add), onPressed: () => onIncrement(item)),
-                      ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: ListTile(
+                      // --- PERBAIKAN UTAMA DI SINI ---
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: item.coffee.image,
+                          placeholder: (context, url) => const CircularProgressIndicator(),
+                          errorWidget: (context, url, error) => const Icon(Icons.error),
+                          fit: BoxFit.cover,
+                          width: 56,
+                          height: 56,
+                        ),
+                      ),
+                      title: Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('Size: ${item.size} | ${AppTheme.formatRupiah(price)}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.remove_circle_outline), onPressed: () => onDecrement(item)),
+                          Text('${item.quantity}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          IconButton(icon: Icon(Icons.add_circle, color: theme.primaryColor), onPressed: () => onIncrement(item)),
+                        ],
+                      ),
                     ),
                   ),
                 );

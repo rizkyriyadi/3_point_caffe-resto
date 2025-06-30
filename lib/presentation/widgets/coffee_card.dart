@@ -1,5 +1,8 @@
+// lib/presentation/widgets/coffee_card.dart
+
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Import package baru
+import 'package:cached_network_image/cached_network_image.dart';
+
 import '../../data/models/coffee.dart';
 import '../../utils/app_theme.dart';
 
@@ -26,33 +29,13 @@ class CoffeeCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          // ... (dekorasi container Anda sudah bagus, tidak perlu diubah)
-          gradient: isDarkMode
-              ? const LinearGradient(
-            colors: [Color(0xFF2E2E2E), Color(0xFF1A1A1A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )
-              : LinearGradient(
-            colors: [Colors.white, Colors.grey[50]!],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDarkMode ? 0.5 : 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
+      child: Card( // Menggunakan CardTheme dari AppTheme
+        elevation: isDarkMode ? 1 : 3,
+        shadowColor: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.grey.withOpacity(0.2),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildImage(context, theme), // Kirim context untuk akses theme di placeholder
+            _buildImage(context, theme),
             _buildInfo(context, theme),
           ],
         ),
@@ -63,44 +46,18 @@ class CoffeeCard extends StatelessWidget {
   Widget _buildImage(BuildContext context, ThemeData theme) {
     return Expanded(
       flex: 5,
-      child: Stack(
-        children: [
-          Hero(
-            tag: coffee.image + coffee.name,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-              // PERBAIKAN UTAMA: Gunakan CachedNetworkImage
-              child: CachedNetworkImage(
-                imageUrl: coffee.image,
-                placeholder: (context, url) => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
-                errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey, size: 40),
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
+      child: Hero(
+        tag: coffee.image + coffee.name,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          child: CachedNetworkImage(
+            imageUrl: coffee.image,
+            placeholder: (context, url) => Center(child: CircularProgressIndicator(color: theme.primaryColor)),
+            errorWidget: (context, url, error) => const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+            width: double.infinity,
+            fit: BoxFit.cover,
           ),
-          Positioned(
-            top: 12,
-            left: 12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.star_rounded, color: Color(0xFFFFD700), size: 16),
-                  const SizedBox(width: 5),
-                  Text(
-                    coffee.rating.toString(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -109,34 +66,43 @@ class CoffeeCard extends StatelessWidget {
     return Expanded(
       flex: 4,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(15, 12, 15, 12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              coffee.name,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              'with ${coffee.subtitle}',
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7)),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  coffee.name,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                // --- PERBAIKAN UTAMA DI SINI ---
+                // Hanya tampilkan Text widget ini jika subtitle tidak null & tidak kosong
+                if (coffee.subtitle != null && coffee.subtitle!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      coffee.subtitle!, // Gunakan ! karena sudah dicek tidak null
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  // PENYEMPURNAAN: Lebih aman dari error jika harga 'M' tidak ada
                   AppTheme.formatRupiah(coffee.prices['M'] ?? 0.0),
-                  style: theme.textTheme.headlineSmall?.copyWith(
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: theme.colorScheme.primary,
-                    fontFamily: 'Urbanist',
                   ),
                 ),
                 _buildAddToCartButton(context, theme),
@@ -155,13 +121,13 @@ class CoffeeCard extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
+          color: theme.primaryColor,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.3),
+              color: theme.primaryColor.withOpacity(0.3),
               blurRadius: 10,
-              offset: const Offset(0, 5),
+              offset: const Offset(0, 4),
             )
           ],
         ),

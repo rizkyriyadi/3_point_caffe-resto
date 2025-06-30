@@ -1,21 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 class AppTheme {
-  // Primary color for the brand
-  static const Color primaryColor = Color(0xFFC67C4E);
-
-  // Light Theme Colors
-  static const Color lightBackground = Color(0xFFFDFDFD);
-  static const Color lightTextPrimary = Color(0xFF313131);
-  static const Color lightTextSecondary = Color(0xFF9B9B9B);
-  static const Color lightCard = Colors.white;
-
-  // Dark Theme Colors
-  static const Color darkBackground = Color(0xFF121212);
-  static const Color darkTextPrimary = Color(0xFFFFFFFF);
-  static const Color darkTextSecondary = Color(0xFF8A8A8A);
-  static const Color darkCard = Color(0xFF1F1F1F);
+  // Palet Warna Baru (Green & Fresh)
+  static const Color primaryGreen = Color(0xFF006A42);
+  static const Color accentOrange = Color(0xFFF9A261);
+  static const Color background = Color(0xFFF7F7F8);
+  static const Color surface = Colors.white;
+  static const Color darkText = Color(0xFF1B1B1B);
+  static const Color secondaryText = Color(0xFF6A6A6A);
 
   static String formatRupiah(double amount) {
     final format = NumberFormat.currency(
@@ -27,68 +21,106 @@ class AppTheme {
   }
 
   static final ThemeData lightTheme = ThemeData(
-    brightness: Brightness.light,
-    primaryColor: primaryColor,
-    scaffoldBackgroundColor: lightBackground,
-    fontFamily: 'Poppins', // Default font
-    textTheme: _buildTextTheme(base: ThemeData.light().textTheme, primaryColor: lightTextPrimary, secondaryColor: lightTextSecondary),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      iconTheme: IconThemeData(color: lightTextPrimary),
-      titleTextStyle: TextStyle(fontFamily: 'Urbanist', fontSize: 22, fontWeight: FontWeight.bold, color: lightTextPrimary),
-    ),
-    elevatedButtonTheme: _elevatedButtonTheme,
-    iconTheme: const IconThemeData(color: lightTextSecondary),
+    primaryColor: primaryGreen,
+    scaffoldBackgroundColor: background,
+    fontFamily: GoogleFonts.poppins().fontFamily,
     colorScheme: const ColorScheme.light(
-      primary: primaryColor,
-      secondary: primaryColor,
-      background: lightBackground,
-      surface: lightCard,
+      primary: primaryGreen,
+      secondary: accentOrange,
+      background: background,
+      surface: surface,
       onPrimary: Colors.white,
       onSecondary: Colors.white,
-      onBackground: lightTextPrimary,
-      onSurface: lightTextPrimary,
+      onBackground: darkText,
+      onSurface: darkText,
+    ),
+    textTheme: _buildTextTheme(base: ThemeData.light().textTheme, primaryColor: darkText, secondaryColor: secondaryText),
+    appBarTheme: AppBarTheme(
+      backgroundColor: background,
+      elevation: 0,
+      centerTitle: true,
+      iconTheme: const IconThemeData(color: darkText, size: 24),
+      titleTextStyle: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: darkText),
+    ),
+    elevatedButtonTheme: _elevatedButtonTheme,
+
+    // PERBAIKAN: Menggunakan CardThemeData
+    cardTheme: CardThemeData(
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: surface,
+    ),
+
+    inputDecorationTheme: InputDecorationTheme(
+      hintStyle: const TextStyle(color: secondaryText),
+      prefixIconColor: secondaryText,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+    ),
+
+    // PERBAIKAN: Menggunakan TabBarThemeData
+    tabBarTheme: TabBarThemeData(
+      indicator: BoxDecoration(
+        color: primaryGreen,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      indicatorSize: TabBarIndicatorSize.tab,
+      labelColor: Colors.white,
+      unselectedLabelColor: darkText,
+      labelStyle: const TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.bold),
+      unselectedLabelStyle: const TextStyle(fontFamily: 'Poppins'),
     ),
   );
 
-  static final ThemeData darkTheme = ThemeData(
+  static final ThemeData darkTheme = lightTheme.copyWith(
     brightness: Brightness.dark,
-    primaryColor: primaryColor,
-    scaffoldBackgroundColor: darkBackground,
-    fontFamily: 'Poppins', // Default font
-    textTheme: _buildTextTheme(base: ThemeData.dark().textTheme, primaryColor: darkTextPrimary, secondaryColor: darkTextSecondary),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      iconTheme: IconThemeData(color: darkTextPrimary),
-      titleTextStyle: TextStyle(fontFamily: 'Urbanist', fontSize: 22, fontWeight: FontWeight.bold, color: darkTextPrimary),
-    ),
-    elevatedButtonTheme: _elevatedButtonTheme,
-    iconTheme: const IconThemeData(color: darkTextSecondary),
+    scaffoldBackgroundColor: const Color(0xFF0D0D0D),
     colorScheme: const ColorScheme.dark(
-      primary: primaryColor,
-      secondary: primaryColor,
-      background: darkBackground,
-      surface: darkCard,
+      primary: primaryGreen,
+      secondary: accentOrange,
+      background: Color(0xFF0D0D0D),
+      surface: Color(0xFF1A1A1A),
       onPrimary: Colors.white,
-      onSecondary: Colors.white,
-      onBackground: darkTextPrimary,
-      onSurface: darkTextPrimary,
+      onSecondary: Colors.black,
+      onBackground: Colors.white,
+      onSurface: Colors.white,
+    ),
+    textTheme: _buildTextTheme(base: ThemeData.dark().textTheme, primaryColor: Colors.white, secondaryColor: Colors.white70),
+    appBarTheme: lightTheme.appBarTheme.copyWith(
+      backgroundColor: const Color(0xFF0D0D0D),
+      iconTheme: const IconThemeData(color: Colors.white, size: 24),
+      titleTextStyle: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white),
+    ),
+    cardTheme: lightTheme.cardTheme.copyWith(
+      color: const Color(0xFF1A1A1A),
+    ),
+    inputDecorationTheme: lightTheme.inputDecorationTheme.copyWith(
+      fillColor: const Color(0xFF1A1A1A),
+      hintStyle: const TextStyle(color: Colors.white54),
+      prefixIconColor: Colors.white54,
+    ),
+    tabBarTheme: lightTheme.tabBarTheme.copyWith(
+      unselectedLabelColor: Colors.white70,
     ),
   );
 
   static TextTheme _buildTextTheme({required TextTheme base, required Color primaryColor, required Color secondaryColor}) {
     return base.copyWith(
-      displayLarge: TextStyle(fontFamily: 'Urbanist', fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
-      displayMedium: TextStyle(fontFamily: 'Urbanist', fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
-      displaySmall: TextStyle(fontFamily: 'Urbanist', fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor),
-      headlineMedium: TextStyle(fontFamily: 'Urbanist', fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
-      headlineSmall: TextStyle(fontFamily: 'Urbanist', fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
-      titleLarge: TextStyle(fontFamily: 'Urbanist', fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor),
-      bodyLarge: TextStyle(fontSize: 16, color: primaryColor, height: 1.5),
-      bodyMedium: TextStyle(fontSize: 14, color: secondaryColor, height: 1.5),
-      labelLarge: const TextStyle(fontFamily: 'Urbanist', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+      displayLarge: GoogleFonts.urbanist(fontSize: 32, fontWeight: FontWeight.bold, color: primaryColor),
+      displayMedium: GoogleFonts.urbanist(fontSize: 28, fontWeight: FontWeight.bold, color: primaryColor),
+      displaySmall: GoogleFonts.urbanist(fontSize: 24, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineMedium: GoogleFonts.urbanist(fontSize: 20, fontWeight: FontWeight.bold, color: primaryColor),
+      headlineSmall: GoogleFonts.urbanist(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor),
+      titleLarge: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: primaryColor),
+      bodyLarge: GoogleFonts.poppins(fontSize: 16, color: primaryColor),
+      bodyMedium: GoogleFonts.poppins(fontSize: 14, color: secondaryColor),
+      labelLarge: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
     ).apply(
       fontFamily: 'Poppins',
     );
@@ -96,13 +128,13 @@ class AppTheme {
 
   static final ElevatedButtonThemeData _elevatedButtonTheme = ElevatedButtonThemeData(
     style: ElevatedButton.styleFrom(
-      backgroundColor: primaryColor,
+      backgroundColor: primaryGreen,
       foregroundColor: Colors.white,
-      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 16),
-      elevation: 5,
-      shadowColor: primaryColor.withOpacity(0.4),
+      elevation: 2,
+      shadowColor: primaryGreen.withOpacity(0.3),
     ),
   );
 }

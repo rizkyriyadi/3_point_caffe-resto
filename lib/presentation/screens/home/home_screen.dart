@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/product_service.dart';
 import '../../../data/models/coffee.dart';
+import '../../widgets/category_tab_widget.dart';
 import '../../widgets/coffee_card.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../detail/product_detail_screen.dart';
@@ -40,7 +41,6 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
     _productsFuture = _productService.getProducts();
     _tabController = TabController(length: _categories.length, vsync: this);
 
-    // Tambahkan listener untuk memicu filter saat ada perubahan
     _searchController.addListener(_runFilter);
     _tabController.addListener(_runFilter);
   }
@@ -55,23 +55,21 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
   }
 
   void _runFilter() {
-    // Ambil kategori dan query pencarian terbaru
+    if (_allProducts.isEmpty) return;
+
     final selectedCategory = _categories[_tabController.index];
     final searchQuery = _searchController.text.toLowerCase();
 
     List<Coffee> results = List.from(_allProducts);
 
-    // 1. Filter berdasarkan kategori
     if (selectedCategory != 'All') {
-      results.retainWhere((coffee) => coffee.category.toLowerCase() == selectedCategory.toLowerCase());
+      results.retainWhere((c) => c.category.toLowerCase() == selectedCategory.toLowerCase());
     }
 
-    // 2. Filter berdasarkan pencarian
     if (searchQuery.isNotEmpty) {
-      results.retainWhere((coffee) => coffee.name.toLowerCase().contains(searchQuery));
+      results.retainWhere((c) => c.name.toLowerCase().contains(searchQuery));
     }
 
-    // Perbarui UI dengan data yang sudah difilter
     if (mounted) {
       setState(() {
         _displayedCoffees = results;
@@ -92,7 +90,7 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
             return const Center(child: Text("Gagal memuat produk."));
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const EmptyStateWidget();
+            return const EmptyStateWidget(message: "Saat ini belum ada produk tersedia.");
           }
 
           if (_allProducts.isEmpty) {
@@ -100,73 +98,69 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
             _displayedCoffees = List.from(_allProducts);
           }
 
-          return Scaffold(
-            appBar: _buildAppBar(context),
-            body: NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
-                  SliverToBoxAdapter(child: _buildHeader(context)),
-                  SliverToBoxAdapter(child: _buildSearchBar(context)),
-                  SliverToBoxAdapter(child: _buildPromoBanner(context)),
-                  SliverPersistentHeader(
-                    delegate: _SliverTabBarDelegate(_buildCategoryTabs(context)),
-                    pinned: true,
-                    floating: true,
-                  ),
-                ];
-              },
-              body: _buildCoffeeGrid(),
-            ),
+          // UI utama menggunakan ListView agar semua komponen bisa di-scroll
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            children: [
+              _buildHeader(context),
+              const SizedBox(height: 24),
+              _buildSearchBar(context),
+              const SizedBox(height: 24),
+              _buildPromoBanner(context),
+              const SizedBox(height: 24),
+              _buildCategoryTabs(context),
+              const SizedBox(height: 20),
+              _buildCoffeeGrid(),
+            ],
           );
         },
       ),
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
-    return AppBar(
-      leading: IconButton(icon: const Icon(Icons.menu_rounded), onPressed: () {}),
-      title: const Text('BrewBlend'),
-      actions: [
-        IconButton(icon: const Icon(Icons.shopping_bag_outlined), onPressed: () {}),
-        const SizedBox(width: 10),
-      ],
-    );
-  }
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = FirebaseAuth.instance.currentUser;
 
-  Widget _buildCoffeeGrid() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: _displayedCoffees.isEmpty
-          ? EmptyStateWidget(key: UniqueKey())
-          : GridView.builder(
-        key: ValueKey(_categories[_tabController.index] + _searchController.text),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2, childAspectRatio: 0.68, crossAxisSpacing: 15, mainAxisSpacing: 15),
-        padding: const EdgeInsets.all(20),
-        itemCount: _displayedCoffees.length,
-        itemBuilder: (context, index) {
-          final coffee = _displayedCoffees[index];
-          final isFavorite = widget.favoriteCoffees.contains(coffee);
-          return CoffeeCard(
-            coffee: coffee,
-            isFavorite: isFavorite,
-            onToggleFavorite: () => widget.onToggleFavorite(coffee),
-            onAddToCart: widget.onAddToCart,
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => ProductDetailScreen(
-                  coffee: coffee,
-                  onAddToCart: widget.onAddToCart,
-                  isFavorite: isFavorite,
-                  onToggleFavorite: () => widget.onToggleFavorite(coffee),
-                ),
-              ));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // FutureBuilder untuk mengambil nama user dari Firestore
+          FutureBuilder<DocumentSnapshot>(
+            future: user != null ? FirebaseFirestore.instance.collection('users').doc(user.uid).get() : null,
+            builder: (context, snapshot) {
+              String displayName = 'Guest';
+              if (user?.displayName != null && user!.displayName!.isNotEmpty) {
+                displayName = user.displayName!.split(' ').first;
+              } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data!.exists) {
+                Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
+                String fullName = data?['fullName'] ?? 'Guest';
+                displayName = fullName.split(' ').first;
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selamat Pagi,',
+                    style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey, fontFamily: 'Poppins'),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    displayName,
+                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, fontFamily: 'Urbanist'),
+                  ),
+                ],
+              );
             },
-          );
-        },
+          ),
+          CircleAvatar(
+            radius: 28,
+            backgroundImage: NetworkImage(user?.photoURL ?? 'https://i.imgur.com/Z3N57Dk.png'),
+          ),
+        ],
       ),
     );
   }
@@ -177,9 +171,9 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TextField(
-        controller: _searchController, // Menggunakan controller
+        controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Find your coffee...',
+          hintText: 'Cari kopi favoritmu...',
           hintStyle: TextStyle(fontFamily: 'Poppins', color: isDarkMode ? Colors.white54 : Colors.grey[600]),
           prefixIcon: Icon(Icons.search_rounded, color: isDarkMode ? Colors.white70 : Colors.grey[700], size: 28),
           filled: true,
@@ -194,70 +188,6 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
     );
   }
 
-  TabBar _buildCategoryTabs(BuildContext context) {
-    return TabBar(
-      controller: _tabController,
-      tabs: _categories.map((String category) => Tab(text: category)).toList(),
-      isScrollable: true,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: _buildHeaderUI(theme, 'Guest', null),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('users').doc(user.uid).get(),
-        builder: (context, snapshot) {
-          String displayName = 'Guest';
-          String? photoUrl = user.photoURL;
-
-          if (user.displayName != null && user.displayName!.isNotEmpty) {
-            displayName = user.displayName!.split(' ').first;
-          } else if (snapshot.connectionState == ConnectionState.done && snapshot.hasData && snapshot.data!.exists) {
-            Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
-            String fullName = data?['fullName'] ?? 'User';
-            displayName = fullName.split(' ').first;
-          }
-
-          return _buildHeaderUI(theme, displayName, photoUrl);
-        },
-      ),
-    );
-  }
-
-  Widget _buildHeaderUI(ThemeData theme, String name, String? photoUrl) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Good morning,', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey, fontFamily: 'Poppins')),
-            const SizedBox(height: 4),
-            Text(name, style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, fontFamily: 'Urbanist')),
-          ],
-        ),
-        CircleAvatar(
-          radius: 28,
-          backgroundImage: NetworkImage(photoUrl ?? 'https://i.imgur.com/Z3N57Dk.png'),
-        ),
-      ],
-    );
-  }
-
   Widget _buildPromoBanner(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
@@ -267,7 +197,7 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
         color: const Color(0xFF313131),
         borderRadius: BorderRadius.circular(25),
         image: const DecorationImage(
-          image: AssetImage('assets/images/promo_banner.png'),
+          image: AssetImage('assets/images/promo_banner.png'), // Pastikan gambar ini ada di assets
           fit: BoxFit.cover,
           opacity: 0.8,
         ),
@@ -292,19 +222,69 @@ class _HomePageContentState extends State<HomePageContent> with TickerProviderSt
       ),
     );
   }
-}
 
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabBar _tabBar;
-  _SliverTabBarDelegate(this._tabBar);
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(color: Theme.of(context).scaffoldBackgroundColor, child: _tabBar);
+  Widget _buildCategoryTabs(BuildContext context) {
+    return SizedBox(
+      height: 45,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _categories.length,
+        padding: const EdgeInsets.only(left: 20),
+        itemBuilder: (context, index) {
+          final category = _categories[index];
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: CategoryTabWidget(
+              category: category,
+              isSelected: _tabController.index == index,
+              onTap: () {
+                _tabController.animateTo(index);
+              },
+            ),
+          );
+        },
+      ),
+    );
   }
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
+
+  Widget _buildCoffeeGrid() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: _displayedCoffees.isEmpty
+          ? EmptyStateWidget(key: UniqueKey(), message: "Tidak ada produk di kategori ini.")
+          : GridView.builder(
+        key: ValueKey(_categories[_tabController.index] + _searchController.text),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.72,
+          crossAxisSpacing: 15,
+          mainAxisSpacing: 15,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: _displayedCoffees.length,
+        itemBuilder: (context, index) {
+          final coffee = _displayedCoffees[index];
+          final isFavorite = widget.favoriteCoffees.contains(coffee);
+          return CoffeeCard(
+            coffee: coffee,
+            isFavorite: isFavorite,
+            onToggleFavorite: () => widget.onToggleFavorite(coffee),
+            onAddToCart: widget.onAddToCart,
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => ProductDetailScreen(
+                  coffee: coffee,
+                  onAddToCart: widget.onAddToCart,
+                  isFavorite: isFavorite,
+                  onToggleFavorite: () => widget.onToggleFavorite(coffee),
+                ),
+              ));
+            },
+          );
+        },
+      ),
+    );
+  }
 }

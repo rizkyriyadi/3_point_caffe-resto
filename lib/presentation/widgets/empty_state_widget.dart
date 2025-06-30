@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
 class EmptyStateWidget extends StatelessWidget {
-  const EmptyStateWidget({super.key});
+  // PENAMBAHAN: Tambahkan parameter message
+  final String message;
+
+  const EmptyStateWidget({
+    super.key,
+    this.message = "Sepertinya belum ada apa-apa di sini.", // Beri nilai default
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +25,9 @@ class EmptyStateWidget extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+            // Gunakan message yang diterima dari parameter
             Text(
-              'Sepertinya belum ada apa-apa di sini.',
+              message,
               style: TextStyle(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),

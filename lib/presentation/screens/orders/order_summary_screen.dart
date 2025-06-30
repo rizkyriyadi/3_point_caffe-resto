@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
@@ -155,14 +156,37 @@ class _OrderSummaryScreenState extends State<OrderSummaryScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset(item.coffee.image, width: 50, height: 50, fit: BoxFit.cover)),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            // Ganti Image.asset menjadi CachedNetworkImage
+            child: CachedNetworkImage(
+              imageUrl: item.coffee.image,
+              placeholder: (context, url) => const SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: Center(child: CircularProgressIndicator())),
+              errorWidget: (context, url, error) => const Icon(Icons.error),
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+            ),
+          ),
           const SizedBox(width: 12),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)), Text('Size: ${item.size} • Qty: ${item.quantity}', style: const TextStyle(color: Colors.grey))])),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.coffee.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Size: ${item.size} • Qty: ${item.quantity}', style: const TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
           Text(AppTheme.formatRupiah((item.coffee.prices[item.size]! * item.quantity))),
         ],
       ),
     );
   }
+
 
   Widget _buildCostRow(String title, double amount) {
     return Padding(
